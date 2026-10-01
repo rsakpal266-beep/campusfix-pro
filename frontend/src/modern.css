@@ -2942,7 +2942,7 @@ button:hover {
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 360px) {
   .dashboard-main .stats-grid {
     grid-template-columns: 1fr !important;
   }
@@ -4335,25 +4335,6 @@ button:hover {
   }
 }
 
-@media (max-width: 700px) {
-  .dashboard-page {
-    flex-direction: column !important;
-  }
-
-  .dashboard-sidebar {
-    width: 100% !important;
-    min-width: 100% !important;
-    max-width: 100% !important;
-    height: auto !important;
-    position: relative !important;
-  }
-
-  .dashboard-nav {
-    flex-direction: row !important;
-    flex-wrap: wrap !important;
-  }
-}
-
 /* =========================================================
    CAMPUSFIX PRO — TECHNICIAN & EXTENDED DASHBOARD THEME
    Eliminates all white backgrounds to match the dark neon theme
@@ -4990,4 +4971,785 @@ button:hover {
 
 .modal-close:hover {
   color: #ffffff !important;
+}
+
+/* =========================================================
+   CAMPUSFIX PRO — COMPLETE PHONE & MOBILE RESPONSIVENESS SUITE
+   Tailored for all phone viewports (320px to 768px)
+   ========================================================= */
+
+@media (max-width: 768px) {
+  /* 1. Global Viewport & Container Resets */
+  html, body {
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  #root, .app {
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  /* 2. Top Navigation Bar */
+  .navbar {
+    height: 66px !important;
+    padding: 0 14px !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+    gap: 8px !important;
+  }
+
+  .logo {
+    gap: 8px !important;
+    min-width: 0 !important;
+    flex-shrink: 1 !important;
+  }
+
+  .logo .brand-icon {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    font-size: 17px !important;
+    border-radius: 9px !important;
+  }
+
+  .logo .brand-text {
+    min-width: 0 !important;
+  }
+
+  .logo .brand-text strong {
+    font-size: 16px !important;
+    letter-spacing: -0.4px !important;
+    white-space: nowrap !important;
+  }
+
+  .logo .brand-text small {
+    display: none !important;
+  }
+
+  .nav-links {
+    display: none !important;
+  }
+
+  .nav-buttons {
+    gap: 6px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .nav-buttons button,
+  .portal-btn,
+  .register-btn,
+  .login-btn {
+    height: 35px !important;
+    padding: 0 10px !important;
+    font-size: 11.5px !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+    white-space: nowrap !important;
+  }
+
+  /* 3. Hero Section */
+  .hero-section {
+    min-height: auto !important;
+    padding: 44px 16px 52px !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  .hero-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  .hero-badge {
+    font-size: 11.5px !important;
+    padding: 6px 14px !important;
+    margin: 0 auto 18px !important;
+    max-width: 95% !important;
+    line-height: 1.35 !important;
+    display: inline-flex !important;
+  }
+
+  .hero-section h1 {
+    font-size: clamp(26px, 8vw, 40px) !important;
+    line-height: 1.16 !important;
+    letter-spacing: -0.8px !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    hyphens: auto;
+    margin: 0 auto 16px !important;
+    max-width: 100% !important;
+  }
+
+  .hero-section h1 span {
+    font-size: inherit !important;
+    display: inline !important;
+  }
+
+  .hero-description {
+    font-size: 14px !important;
+    line-height: 1.55 !important;
+    margin: 0 auto 24px !important;
+    max-width: 100% !important;
+    padding: 0 4px !important;
+  }
+
+  .hero-actions {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 320px !important;
+    margin: 0 auto !important;
+    gap: 10px !important;
+  }
+
+  .hero-actions button {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 44px !important;
+    font-size: 13.5px !important;
+    border-radius: 9px !important;
+  }
+
+  /* 4. Home Page Sections */
+  .features-section,
+  .steps-section,
+  .about-section {
+    padding: 44px 14px !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+  }
+
+  .section-heading h2 {
+    font-size: 23px !important;
+    line-height: 1.25 !important;
+    margin-bottom: 8px !important;
+  }
+
+  .section-heading span {
+    font-size: 13.5px !important;
+    line-height: 1.45 !important;
+  }
+
+  .feature-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+    margin-top: 24px !important;
+  }
+
+  .feature-card {
+    padding: 20px 16px !important;
+  }
+
+  .steps-container {
+    flex-direction: column !important;
+    gap: 16px !important;
+    margin-top: 24px !important;
+  }
+
+  .step-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 20px 16px !important;
+    box-sizing: border-box !important;
+  }
+
+  .about-content {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+  }
+
+  .about-stats {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  .footer {
+    padding: 36px 14px 20px !important;
+  }
+
+  .footer-container {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+    text-align: center !important;
+  }
+
+  .footer-brand,
+  .footer-links {
+    align-items: center !important;
+    text-align: center !important;
+  }
+
+  /* 5. Auth Pages (Login, Register, Forgot/Reset Password) */
+  .auth-page {
+    padding: 20px 12px !important;
+    min-height: calc(100vh - 66px) !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .auth-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 22px 16px !important;
+    border-radius: 16px !important;
+    margin: 0 auto !important;
+    box-sizing: border-box !important;
+  }
+
+  .auth-card h2 {
+    font-size: 21px !important;
+  }
+
+  .auth-subtitle {
+    font-size: 13px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .role-selector-container {
+    padding: 12px 10px !important;
+    margin-bottom: 18px !important;
+    border-radius: 12px !important;
+  }
+
+  .role-selector-title {
+    font-size: 12px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .role-selector-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  .role-select-btn {
+    padding: 10px 12px !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+  }
+
+  .auth-card form input,
+  .auth-card form select {
+    padding: 12px !important;
+    font-size: 14px !important;
+  }
+
+  .auth-options {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+
+  /* 6. Dashboard Shell, Mobile Sidebar & Sticky Navigation Strip */
+  .dashboard-page {
+    flex-direction: column !important;
+    min-height: 100vh !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  .dashboard-sidebar {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    height: auto !important;
+    padding: 12px 14px 8px !important;
+    border-right: none !important;
+    border-bottom: 1px solid rgba(124, 92, 246, 0.22) !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 1000 !important;
+    background: rgba(12, 14, 34, 0.96) !important;
+    backdrop-filter: blur(16px) !important;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    box-sizing: border-box !important;
+  }
+
+  .dashboard-logo {
+    order: 1 !important;
+    min-height: auto !important;
+    margin-bottom: 0 !important;
+    padding: 0 !important;
+    gap: 8px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .dashboard-logo .dashboard-brand-icon {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    font-size: 15px !important;
+    border-radius: 8px !important;
+  }
+
+  .dashboard-logo .dashboard-brand-text strong {
+    font-size: 15px !important;
+    letter-spacing: -0.3px !important;
+  }
+
+  .dashboard-logo .dashboard-brand-text small {
+    display: none !important;
+  }
+
+  .sidebar-role-badge {
+    order: 2 !important;
+    margin: 0 !important;
+    padding: 4px 8px !important;
+    font-size: 10.5px !important;
+    border-radius: 6px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .dashboard-logout {
+    order: 3 !important;
+    margin-top: 0 !important;
+    margin-left: auto !important;
+    padding: 5px 11px !important;
+    font-size: 11.5px !important;
+    height: 32px !important;
+    border-radius: 7px !important;
+    width: auto !important;
+    flex-shrink: 0 !important;
+  }
+
+  .dashboard-nav {
+    order: 4 !important;
+    flex: 0 0 100% !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    gap: 6px !important;
+    padding: 8px 2px 2px !important;
+    margin-top: 2px !important;
+    scrollbar-width: none !important;
+  }
+
+  .dashboard-nav::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .dashboard-nav a {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    padding: 0 12px !important;
+    font-size: 12.5px !important;
+    font-weight: 600 !important;
+    border-radius: 8px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    transform: none !important;
+  }
+
+  /* 7. Dashboard Main Content & Header */
+  .dashboard-main {
+    padding: 16px 12px 36px !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+
+  .dashboard-header,
+  .admin-header,
+  .complaint-header,
+  .tickets-header,
+  .details-header,
+  .fixbot-header,
+  .profile-page-header,
+  .technician-section-header,
+  .technician-tickets-toolbar,
+  .notifications-header,
+  .section-title-row,
+  .admin-section-header,
+  .users-toolbar {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+    margin-bottom: 16px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .dashboard-header h1,
+  .admin-header h1,
+  .complaint-header h1,
+  .tickets-header h1,
+  .details-header h1,
+  .fixbot-header h1,
+  .profile-page-header h1 {
+    font-size: 22px !important;
+    line-height: 1.2 !important;
+    letter-spacing: -0.5px !important;
+  }
+
+  .dashboard-header p,
+  .admin-header p,
+  .complaint-header p,
+  .tickets-header p,
+  .details-header p,
+  .fixbot-header p,
+  .profile-page-header p {
+    font-size: 13px !important;
+    line-height: 1.45 !important;
+  }
+
+  .admin-profile,
+  .technician-profile {
+    width: 100% !important;
+    justify-content: flex-start !important;
+    padding: 8px 12px !important;
+    box-sizing: border-box !important;
+  }
+
+  .dashboard-report-btn,
+  .view-all-btn,
+  .admin-primary-btn,
+  .print-report-btn {
+    width: 100% !important;
+    justify-content: center !important;
+    text-align: center !important;
+    box-sizing: border-box !important;
+    padding: 10px 14px !important;
+    font-size: 13px !important;
+  }
+
+  /* 8. Stats Cards Across All Dashboards */
+  .dashboard-main .stats-grid,
+  .stats-grid,
+  .dashboard-stats,
+  .admin-stats,
+  .report-stats-grid,
+  .ticket-summary,
+  .notification-summary {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .stat-card,
+  .ticket-summary-card,
+  .report-stat-card,
+  .notification-summary-card {
+    padding: 14px 10px !important;
+    gap: 10px !important;
+    border-radius: 12px !important;
+    box-sizing: border-box !important;
+  }
+
+  .stat-icon,
+  .report-stat-icon,
+  .notification-summary-icon {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    font-size: 17px !important;
+    border-radius: 9px !important;
+  }
+
+  .stat-card h3,
+  .ticket-summary-card h3,
+  .report-stat-card h3,
+  .notification-summary-card h3 {
+    font-size: 18px !important;
+    margin: 0 0 2px !important;
+  }
+
+  .stat-card p,
+  .ticket-summary-card p,
+  .report-stat-card p,
+  .notification-summary-card p {
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+  }
+
+  /* 9. Action Grids */
+  .technician-quick-actions,
+  .quick-actions {
+    margin-top: 18px !important;
+  }
+
+  .technician-quick-actions h2,
+  .quick-actions h2 {
+    font-size: 18px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .technician-action-grid,
+  .admin-quick-grid,
+  .quick-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  .technician-action-card,
+  .admin-quick-card,
+  .quick-card {
+    padding: 16px 14px !important;
+    border-radius: 12px !important;
+  }
+
+  /* 10. Card Containers & Sections */
+  .technician-welcome,
+  .technician-tickets-section,
+  .technician-all-tickets-section,
+  .admin-ticket-section,
+  .manage-users-section,
+  .categories-page-card,
+  .admin-notifications-section,
+  .recent-tickets,
+  .complaint-card,
+  .details-card,
+  .report-card,
+  .technician-profile-card,
+  .profile-card {
+    padding: 16px 12px !important;
+    margin-top: 14px !important;
+    border-radius: 14px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .technician-welcome h2 {
+    font-size: 19px !important;
+  }
+
+  .technician-welcome p {
+    font-size: 12.5px !important;
+  }
+
+  /* 11. Search Filters & Toolbars */
+  .tickets-filter,
+  .technician-filters,
+  .ticket-filter-bar,
+  .users-filter-controls {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .tickets-filter input,
+  .tickets-filter select,
+  .technician-filters input,
+  .technician-filters select,
+  .ticket-filter-bar input,
+  .ticket-filter-bar select,
+  .users-filter-controls input,
+  .users-filter-controls select {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    padding: 11px 12px !important;
+    font-size: 13.5px !important;
+  }
+
+  /* 12. Responsive Tables (Fluid Swiping on Phone) */
+  .technician-ticket-table-wrapper,
+  .technician-all-tickets-table-wrapper,
+  .admin-ticket-table-wrapper,
+  .users-table-wrapper,
+  .ticket-table {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    display: block !important;
+    border-radius: 10px !important;
+    box-sizing: border-box !important;
+  }
+
+  .technician-ticket-table,
+  .technician-all-tickets-table,
+  .admin-ticket-table,
+  .users-table {
+    min-width: 600px !important;
+    width: 100% !important;
+  }
+
+  .technician-ticket-table th,
+  .technician-ticket-table td,
+  .technician-all-tickets-table th,
+  .technician-all-tickets-table td,
+  .admin-ticket-table th,
+  .admin-ticket-table td,
+  .users-table th,
+  .users-table td {
+    padding: 10px 10px !important;
+    font-size: 12.5px !important;
+    white-space: nowrap !important;
+  }
+
+  /* 13. Form Grids & Radio Options */
+  .form-row,
+  .profile-form-row {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    width: 100% !important;
+  }
+
+  .form-group {
+    width: 100% !important;
+  }
+
+  .priority-options {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .priority-option {
+    padding: 10px 6px !important;
+    font-size: 12px !important;
+    justify-content: center !important;
+  }
+
+  /* 14. Detail & Profile Grids */
+  .details-grid,
+  .ticket-details-grid,
+  .technician-ticket-details-grid,
+  .profile-grid,
+  .reports-grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+    width: 100% !important;
+  }
+
+  .detail-item,
+  .detail-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 4px !important;
+    padding: 10px 0 !important;
+  }
+
+  /* 15. FixBot AI on Mobile */
+  .fixbot-main {
+    padding: 12px 8px 30px !important;
+  }
+
+  .fixbot-container {
+    border-radius: 14px !important;
+    margin-top: 12px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .fixbot-messages {
+    padding: 12px 10px !important;
+    max-height: 420px !important;
+  }
+
+  .message-bubble {
+    max-width: 88% !important;
+    font-size: 13.5px !important;
+    padding: 10px 13px !important;
+  }
+
+  .suggested-questions {
+    padding: 10px 12px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+  }
+
+  .suggested-questions button {
+    width: 100% !important;
+    text-align: left !important;
+    font-size: 12px !important;
+    padding: 8px 12px !important;
+  }
+
+  .chat-input-area {
+    padding: 10px !important;
+    gap: 8px !important;
+  }
+
+  /* 16. Modals on Mobile */
+  .modal-overlay {
+    padding: 12px !important;
+  }
+
+  .assign-modal,
+  .category-modal,
+  .user-modal,
+  .admin-modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 20px 14px !important;
+    border-radius: 14px !important;
+    margin: 10px auto !important;
+    box-sizing: border-box !important;
+  }
+
+  .modal-actions {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  .modal-actions button {
+    width: 100% !important;
+    height: 42px !important;
+  }
+}
+
+/* Extra Compact Tweaks for Small Phones (< 380px) */
+@media (max-width: 380px) {
+  .stats-grid,
+  .dashboard-stats,
+  .admin-stats,
+  .report-stats-grid,
+  .ticket-summary,
+  .notification-summary,
+  .about-stats {
+    grid-template-columns: 1fr !important;
+  }
+
+  .hero-section h1 {
+    font-size: 25px !important;
+  }
+
+  .navbar {
+    padding: 0 10px !important;
+  }
+
+  .logo .brand-text strong {
+    font-size: 14px !important;
+  }
+
+  .priority-options {
+    grid-template-columns: 1fr !important;
+  }
 }
