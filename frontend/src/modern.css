@@ -6723,3 +6723,35 @@ button:hover {
 .technician-dashboard-stats {
   margin-top: 20px !important;
 }
+
+/* Technician Notifications - Text Visibility Fix */
+.notification-card h3,
+.notification-item h3,
+.notification-content h3,
+.notification-title {
+  color: #ffffff !important;
+  font-size: 15px;
+  font-weight: 700;
+  opacity: 1 !important;
+}
+
+/* Notification description */
+.notification-card p,
+.notification-item p,
+.notification-content p {
+  color: #cbd5e1 !important;
+  opacity: 1 !important;
+}
+
+/* Notification date */
+.notification-card small,
+.notification-item small,
+.notification-content small {
+  color: #94a3b8 !important;
+}
+
+/* Keep notification cards readable */
+.notification-card,
+.notification-item {
+  color: #f8fafc;
+}
