@@ -1,25 +1,30 @@
+
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { API_BASE_URL } from "../config";
 import UserSidebar from "../components/UserSidebar";
 
 function Notifications() {
-
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const token = localStorage.getItem("token");
+
+  const isUnread = (notification) =>
+    notification.is_read === false ||
+    notification.is_read === 0 ||
+    notification.is_read === "0";
+
   // Fetch notifications
   const fetchNotifications = async () => {
-
     try {
-
       setLoading(true);
       setError("");
 
-      const token = localStorage.getItem("token");
+      const currentToken = localStorage.getItem("token");
 
-      if (!token) {
+      if (!currentToken) {
         setError("Please login again.");
         return;
       }
@@ -29,125 +34,109 @@ function Notifications() {
         {
           method: "GET",
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${currentToken}`,
           },
         }
       );
 
       const data = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || data.status !== "success") {
         setError(data.message || "Failed to load notifications.");
         return;
       }
 
       setNotifications(data.notifications || []);
-
-    } catch (error) {
-      console.error("Notification error:", error);
+    } catch (err) {
+      console.error("Notification error:", err);
       setError("Cannot connect to backend server.");
     } finally {
-
       setLoading(false);
-
     }
   };
-
 
   useEffect(() => {
     fetchNotifications();
   }, []);
 
+  const unreadCount = notifications.filter(isUnread).length;
 
   // Mark one notification as read
   const markAsRead = async (notificationId) => {
-
     try {
-
-      const token = localStorage.getItem("token");
+      const currentToken = localStorage.getItem("token");
 
       const response = await fetch(
         `${API_BASE_URL}/api/notifications/${notificationId}/read`,
         {
           method: "PUT",
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${currentToken}`,
           },
         }
       );
 
-      if (response.ok) {
-
-        setNotifications((previousNotifications) =>
-          previousNotifications.map((notification) =>
-            notification.id === notificationId
-              ? { ...notification, is_read: true }
-              : notification
-          )
-        );
-
+      if (!response.ok) {
+        throw new Error("Failed to mark notification as read.");
       }
 
-    } catch (error) {
-
-      console.error("Mark notification read error:", error);
-
+      setNotifications((previous) =>
+        previous.map((notification) =>
+          notification.id === notificationId
+            ? { ...notification, is_read: true }
+            : notification
+        )
+      );
+    } catch (err) {
+      console.error("Mark notification read error:", err);
+      setError(err.message || "Could not update notification.");
     }
   };
 
-
   // Mark all notifications as read
   const markAllAsRead = async () => {
-
     try {
+      const currentToken = localStorage.getItem("token");
 
-      const token = localStorage.getItem("token");
+      const unreadNotifications = notifications.filter(isUnread);
 
-      const unreadNotifications = notifications.filter(
-        (notification) => !notification.is_read
-      );
-
-      await Promise.all(
+      const results = await Promise.all(
         unreadNotifications.map((notification) =>
           fetch(
             `${API_BASE_URL}/api/notifications/${notification.id}/read`,
             {
               method: "PUT",
               headers: {
-                Authorization: `Bearer ${token}`,
+                Authorization: `Bearer ${currentToken}`,
               },
             }
           )
         )
       );
 
-      setNotifications((previousNotifications) =>
-        previousNotifications.map((notification) => ({
+      if (results.some((response) => !response.ok)) {
+        throw new Error("Some notifications could not be updated.");
+      }
+
+      setNotifications((previous) =>
+        previous.map((notification) => ({
           ...notification,
           is_read: true,
         }))
       );
-
-    } catch (error) {
-
-      console.error("Mark all notifications error:", error);
-
+    } catch (err) {
+      console.error("Mark all notifications error:", err);
+      setError(err.message || "Could not update notifications.");
     }
   };
 
-
   // Format notification date
   const formatDate = (dateValue) => {
-
-    if (!dateValue) {
-      return "";
-    }
+    if (!dateValue) return "Recently";
 
     const date = new Date(dateValue);
 
-    if (isNaN(date.getTime())) {
-      return dateValue;
-    }
+    if (isNaN(date.getTime())) return dateValue;
 
     return date.toLocaleString("en-IN", {
       day: "2-digit",
@@ -158,212 +147,205 @@ function Notifications() {
     });
   };
 
-
   // Notification icon
   const getNotificationIcon = (title) => {
-
     const text = title?.toLowerCase() || "";
 
-    if (text.includes("assigned")) {
-      return "👨‍🔧";
-    }
-
-    if (text.includes("resolved")) {
-      return "✅";
-    }
-
-    if (text.includes("status")) {
-      return "🔧";
-    }
-
-    if (text.includes("submitted")) {
-      return "🎫";
-    }
+    if (text.includes("assigned")) return "👨‍🔧";
+    if (text.includes("resolved")) return "✅";
+    if (text.includes("status")) return "🔧";
+    if (text.includes("submitted") || text.includes("created")) return "🎫";
 
     return "🔔";
   };
 
-
   return (
     <div className="dashboard-page">
-
       {/* Sidebar */}
       <UserSidebar />
 
       {/* Main Content */}
       <main className="dashboard-main">
-
-        <div className="notifications-header">
-
+        {/* Header */}
+        <header
+          className="dashboard-header"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "16px",
+            flexWrap: "wrap",
+          }}
+        >
           <div>
-
-            <p className="dashboard-label">
-              NOTIFICATIONS
-            </p>
-
             <h1>Notifications</h1>
-
             <p>
-              Stay updated about your maintenance complaints.
+              View important updates related to your maintenance complaints.
             </p>
-
           </div>
 
-          <button
-            className="mark-read-btn"
-            onClick={markAllAsRead}
-            disabled={
-              notifications.filter(
-                (notification) => !notification.is_read
-              ).length === 0
-            }
+          <Link
+            to="/profile"
+            className="admin-profile"
+            style={{ textDecoration: "none", cursor: "pointer" }}
+            title="View Profile"
           >
-            Mark all as read
-          </button>
+            {(() => {
+              const user = JSON.parse(localStorage.getItem("user") || "{}");
+              const name = user.full_name || user.name || "Student";
+              return (
+                <>
+                  <span>{name.charAt(0).toUpperCase()}</span>
+                  <div>
+                    <strong>{name}</strong>
+                    <small>Student</small>
+                  </div>
+                </>
+              );
+            })()}
+          </Link>
+        </header>
 
-        </div>
-
-
-        {/* Error */}
-        {error && (
-          <div className="notification-error">
-            {error}
-          </div>
-        )}
-
-
-        {/* Loading */}
-        {loading && (
-          <div className="notification-card">
-            <div className="notification-content">
-              <p>Loading notifications...</p>
+        {/* Notification Summary */}
+        <section className="stats-grid">
+          <div className="stat-card">
+            <span className="stat-icon">🔔</span>
+            <div>
+              <h3>{notifications.length}</h3>
+              <p>Total Notifications</p>
             </div>
           </div>
-        )}
 
+          <div className="stat-card">
+            <span className="stat-icon">📩</span>
+            <div>
+              <h3>{unreadCount}</h3>
+              <p>Unread Notifications</p>
+            </div>
+          </div>
+        </section>
 
-        {/* Notification List */}
-        {!loading && !error && notifications.length > 0 && (
+        {/* Notifications Panel */}
+        <section className="admin-ticket-section">
+          <div
+            className="ticket-filter-bar"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "12px",
+              flexWrap: "wrap",
+            }}
+          >
+            <div>
+              <h2>Recent Notifications</h2>
+              <p>Stay updated with ticket assignments and changes.</p>
+            </div>
 
-          <div className="notifications-list">
+            {unreadCount > 0 && (
+              <button
+                type="button"
+                className="notification-read-btn"
+                onClick={markAllAsRead}
+              >
+                Mark all as read
+              </button>
+            )}
+          </div>
 
-            {notifications.map((notification) => {
+          {/* Error */}
+          {error && (
+            <div className="notification-error">
+              ⚠️ {error}
+              <button
+                type="button"
+                onClick={fetchNotifications}
+                style={{ marginLeft: "12px", cursor: "pointer" }}
+              >
+                Retry
+              </button>
+            </div>
+          )}
 
-              const isUnread =
-                notification.is_read === false ||
-                notification.is_read === 0;
+          {/* Loading */}
+          {loading && (
+            <div className="notification-empty">
+              Loading notifications...
+            </div>
+          )}
 
-              /*
-                Backend may return ticket_id as the actual
-                CF-XXXX ticket code or as the numeric database ID.
-              */
-              const ticketCode =
-                notification.ticket_code ||
-                (
-                  typeof notification.ticket_id === "string" &&
-                  notification.ticket_id.startsWith("CF-")
-                    ? notification.ticket_id
-                    : null
-                );
+          {/* Empty State */}
+          {!loading && !error && notifications.length === 0 && (
+            <div className="notification-empty">
+              <div className="notification-empty-icon">🔔</div>
+              <h3>No Notifications</h3>
+              <p>You don't have any notifications yet.</p>
+            </div>
+          )}
 
-              return (
+          {/* Notification List */}
+          {!loading && notifications.length > 0 && (
+            <div className="technician-notification-list">
+              {notifications.map((notification) => {
+                const unread = isUnread(notification);
 
-                <div
-                  className={`notification-card ${
-                    isUnread ? "unread" : ""
-                  }`}
-                  key={notification.id}
-                >
+                const ticketCode =
+                  notification.ticket_code ||
+                  (
+                    typeof notification.ticket_id === "string" &&
+                    notification.ticket_id.startsWith("CF-")
+                      ? notification.ticket_id
+                      : null
+                  );
 
-                  <div className="notification-icon">
-                    {getNotificationIcon(notification.title)}
-                  </div>
-
-
-                  <div className="notification-content">
-
-                    <div className="notification-title-row">
-
-                      <h3>
-                        {notification.title}
-                      </h3>
-
-                      <span>
-                        {formatDate(notification.created_at)}
-                      </span>
-
+                return (
+                  <div
+                    key={notification.id}
+                    className={
+                      unread
+                        ? "technician-notification unread"
+                        : "technician-notification"
+                    }
+                  >
+                    <div className="notification-icon">
+                      {getNotificationIcon(notification.title)}
                     </div>
 
+                    <div className="notification-content">
+                      <h3>
+                        {notification.title || "CampusFix Pro Notification"}
+                      </h3>
 
-                    <p>
-                      {notification.message}
-                    </p>
-
-
-                    <div className="notification-actions">
+                      <p>{notification.message}</p>
 
                       {ticketCode && (
-                        <Link to={`/ticket/${ticketCode}`}>
-                          View Ticket
+                        <Link
+                          to={`/ticket/${ticketCode}`}
+                          className="notification-ticket"
+                        >
+                          View Ticket #{ticketCode}
                         </Link>
                       )}
 
-                      {isUnread && (
-                        <button
-                          className="notification-read-btn"
-                          onClick={() =>
-                            markAsRead(notification.id)
-                          }
-                        >
-                          Mark as read
-                        </button>
-                      )}
-
+                      <small>{formatDate(notification.created_at)}</small>
                     </div>
 
+                    {unread && (
+                      <button
+                        type="button"
+                        className="notification-read-btn"
+                        onClick={() => markAsRead(notification.id)}
+                      >
+                        Mark as read
+                      </button>
+                    )}
                   </div>
-
-
-                  {isUnread && (
-                    <div className="unread-dot"></div>
-                  )}
-
-                </div>
-
-              );
-
-            })}
-
-          </div>
-
-        )}
-
-
-        {/* No notifications */}
-        {!loading && !error && notifications.length === 0 && (
-
-          <div className="notification-card">
-
-            <div className="notification-icon">
-              🔔
+                );
+              })}
             </div>
-
-            <div className="notification-content">
-
-              <h3>No notifications</h3>
-
-              <p>
-                You don't have any notifications yet.
-              </p>
-
-            </div>
-
-          </div>
-
-        )}
-
+          )}
+        </section>
       </main>
-
     </div>
   );
 }
