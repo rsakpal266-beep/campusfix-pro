@@ -6712,3 +6712,14 @@ button:hover {
 .complaint-actions {
   border-top: 1px solid var(--cf-border) !important;
 }
+
+/* Technician Dashboard Welcome Box Spacing */
+.technician-welcome {
+  margin-bottom: 20px !important;
+  position: relative;
+}
+
+/* Keep statistics cards separated */
+.technician-dashboard-stats {
+  margin-top: 20px !important;
+}
