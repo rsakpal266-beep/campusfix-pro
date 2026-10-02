@@ -172,14 +172,20 @@ function AdminDashboard() {
         </section>
 
         {/* TWO COLUMN SECTION: RECENT TICKETS & CATEGORY BREAKDOWN */}
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "24px", marginTop: "24px" }}>
-          {/* RECENT TICKETS TABLE */}
-          <section className="admin-tickets-section" style={{ background: "var(--cf-card)", padding: "24px", borderRadius: "16px", border: "1px solid var(--cf-border)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
-              <div>
-                <h2 style={{ color: "#ffffff", margin: 0, fontSize: "18px" }}>Recent Campus Complaints</h2>
-                <p style={{ color: "var(--cf-muted)", fontSize: "13px", margin: "4px 0 0 0" }}>Latest submissions across academic blocks and hostels</p>
-              </div>
+        
+<div
+  className="admin-dashboard-bottom-grid"
+  style={{
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: "24px",
+    marginTop: "24px",
+    width: "100%",
+    maxWidth: "100%",
+    boxSizing: "border-box",
+  }}
+>
 
               <Link to="/admin-tickets" style={{ color: "var(--cf-lime)", textDecoration: "none", fontSize: "13px", fontWeight: "600" }}>
                 View All →
