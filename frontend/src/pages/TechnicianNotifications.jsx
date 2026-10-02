@@ -43,7 +43,7 @@ function TechnicianNotifications() {
       setNotifications(data.notifications || []);
 
     } catch (error) {
-      setError("Cannot connect to Flask backend.");
+      setError("Cannot connect to backend server.");
     } finally {
       setLoading(false);
     }

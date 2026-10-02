@@ -4,739 +4,306 @@ import AdminSidebar from "../components/AdminSidebar";
 import { API_BASE_URL } from "../config";
 
 function AdminDashboard() {
-
-  // ============================================================
-  // DASHBOARD DATA
-  // ============================================================
-
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-
-  // ============================================================
-  // FETCH ADMIN DASHBOARD DATA
-  // ============================================================
-
   useEffect(() => {
-
     const fetchDashboard = async () => {
-
       try {
-
+        setLoading(true);
         const token = localStorage.getItem("token");
 
         if (!token) {
-          setError("Please login as administrator.");
-          setLoading(false);
+          setError("Please login as College Administrator.");
           return;
         }
 
-
-        const response = await fetch(
-          `${API_BASE_URL}/api/admin/dashboard`,
-          {
-            method: "GET",
-
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json"
-            }
-          }
-        );
-
+        const response = await fetch(`${API_BASE_URL}/api/admin/dashboard`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
 
         const data = await response.json();
 
-
-        if (!response.ok) {
-          throw new Error(
-            data.message || "Failed to load dashboard."
-          );
+        if (!response.ok || data.status !== "success") {
+          throw new Error(data.detail || data.message || "Failed to load dashboard data.");
         }
 
-
         setDashboardData(data);
-
       } catch (err) {
-
         console.error("Admin Dashboard Error:", err);
-
-        setError(err.message);
-
+        setError(err.message || "Failed to connect to FastAPI backend.");
       } finally {
-
         setLoading(false);
-
       }
-
     };
 
-
     fetchDashboard();
-
   }, []);
 
-
-  // ============================================================
-  // DASHBOARD VALUES
-  // ============================================================
-
   const statistics = dashboardData?.statistics || {};
-
-  const recentTickets =
-    dashboardData?.recent_tickets || [];
-
-
-  // ============================================================
-  // FORMAT STATUS
-  // ============================================================
+  const recentTickets = dashboardData?.recent_tickets || [];
+  const categoryDistribution = dashboardData?.category_distribution || [];
 
   const getStatusClass = (status) => {
-
-    if (status === "Resolved") {
-      return "status resolved";
-    }
-
-    if (status === "In Progress") {
-      return "status progress";
-    }
-
-    if (status === "Assigned") {
-      return "status progress";
-    }
-
+    const s = String(status || "").toLowerCase();
+    if (s === "resolved" || s === "closed") return "status resolved";
+    if (s === "in progress" || s === "assigned") return "status progress";
     return "status pending";
-
   };
-
-
-  // ============================================================
-  // FORMAT PRIORITY
-  // ============================================================
 
   const getPriorityClass = (priority) => {
-
-    if (priority === "High") {
-      return "priority-high";
-    }
-
-    if (priority === "Medium") {
-      return "priority-medium";
-    }
-
+    const p = String(priority || "").toLowerCase();
+    if (p === "high" || p === "critical") return "priority-high";
+    if (p === "medium") return "priority-medium";
     return "priority-low";
-
   };
 
+  const totalCatSum = categoryDistribution.reduce((acc, c) => acc + (c.count || 0), 0) || 1;
+  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const collegeName = storedUser.college_name || "College Administration";
+
   return (
-
     <div className="dashboard-page">
-
       <AdminSidebar />
 
-      {/* =================================================
-          MAIN CONTENT
-      ================================================= */}
-
       <main className="dashboard-main">
-
-
-        {/* =================================================
-            HEADER
-        ================================================= */}
-
-        <div className="admin-header">
-
-
+        {/* HEADER */}
+        <div className="admin-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-
-            <p className="dashboard-label">
-              ADMINISTRATION
-            </p>
-
-
-            <h1>
-              Admin Dashboard
-            </h1>
-
-
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+              <span className="role-badge admin">🏛️ {collegeName}</span>
+              <span style={{ color: "var(--cf-lime)", fontSize: "13px", fontWeight: "600" }}>• System Live</span>
+            </div>
+            <h1>Campus Operations Dashboard</h1>
             <p>
-              Manage campus maintenance complaints and monitor
-              their resolution.
+              Overview of college maintenance complaints, technician dispatches, and user onboarding.
             </p>
-
           </div>
 
-
-
-          {/* Admin Profile */}
-
-          <div className="admin-profile">
-
-            <span className="admin-initial">
-              A
-            </span>
-
-
-            <div>
-
-              <strong>
-                Administrator
-              </strong>
-
-
-              <small>
-                Admin
-              </small>
-
-            </div>
-
-          </div>
-
-
-        </div>
-
-
-
-        {/* =================================================
-            ERROR MESSAGE
-        ================================================= */}
-
-        {error && (
-
-          <div
-            style={{
-              background: "#3a1820",
-              color: "#ff9aa9",
-              padding: "12px 16px",
-              borderRadius: "10px",
-              marginBottom: "20px"
-            }}
-          >
-            ⚠️ {error}
-          </div>
-
-        )}
-
-
-
-        {/* =================================================
-            STATISTICS
-        ================================================= */}
-
-        <div className="dashboard-stats admin-stats">
-
-
-          {/* Total Tickets */}
-
-          <div className="stat-card">
-
-            <div className="stat-icon">
-              🎫
-            </div>
-
-
-            <div>
-
-              <h3>
-
-                {loading
-                  ? "..."
-                  : statistics.total_tickets ?? 0}
-
-              </h3>
-
-
-              <p>
-                Total Tickets
-              </p>
-
-            </div>
-
-          </div>
-
-
-
-          {/* Pending */}
-
-          <div className="stat-card">
-
-            <div className="stat-icon">
-              ⏳
-            </div>
-
-
-            <div>
-
-              <h3>
-
-                {loading
-                  ? "..."
-                  : statistics.pending ?? 0}
-
-              </h3>
-
-
-              <p>
-                Pending
-              </p>
-
-            </div>
-
-          </div>
-
-
-
-          {/* In Progress */}
-
-          <div className="stat-card">
-
-            <div className="stat-icon">
-              🔧
-            </div>
-
-
-            <div>
-
-              <h3>
-
-                {loading
-                  ? "..."
-                  : statistics.in_progress ?? 0}
-
-              </h3>
-
-
-              <p>
-                In Progress
-              </p>
-
-            </div>
-
-          </div>
-
-
-
-          {/* Resolved */}
-
-          <div className="stat-card">
-
-            <div className="stat-icon">
-              ✅
-            </div>
-
-
-            <div>
-
-              <h3>
-
-                {loading
-                  ? "..."
-                  : statistics.resolved ?? 0}
-
-              </h3>
-
-
-              <p>
-                Resolved
-              </p>
-
-            </div>
-
-          </div>
-
-
-        </div>
-
-
-
-        {/* =================================================
-            RECENT TICKETS
-        ================================================= */}
-
-        <section className="admin-section">
-
-
-          <div className="admin-section-header">
-
-            <div>
-
-              <h2>
-                Recent Tickets
-              </h2>
-
-
-              <p>
-                Latest maintenance complaints submitted by users.
-              </p>
-
-            </div>
-
-
-            <Link to="/admin-tickets">
-              View All →
+          <div style={{ display: "flex", gap: "10px" }}>
+            <Link
+              to="/manage-users"
+              className="onboard-btn"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "10px 18px",
+                textDecoration: "none",
+                fontSize: "14px",
+              }}
+            >
+              <span>➕</span> Onboard Member
             </Link>
-
-          </div>
-
-
-
-          <div className="admin-table">
-
-
-            {/* Table Header */}
-
-            <div className="admin-table-row admin-table-heading">
-
-              <span>
-                Ticket ID
-              </span>
-
-              <span>
-                Issue
-              </span>
-
-              <span>
-                Priority
-              </span>
-
-              <span>
-                Technician
-              </span>
-
-              <span>
-                Status
-              </span>
-
-            </div>
-
-
-
-            {/* Loading */}
-
-            {loading && (
-
-              <div
-                className="admin-table-row"
-                style={{
-                  justifyContent: "center"
-                }}
-              >
-
-                <span>
-                  Loading tickets...
-                </span>
-
-              </div>
-
-            )}
-
-
-
-            {/* No Tickets */}
-
-            {!loading && recentTickets.length === 0 && (
-
-              <div
-                className="admin-table-row"
-                style={{
-                  justifyContent: "center"
-                }}
-              >
-
-                <span>
-                  No tickets found.
-                </span>
-
-              </div>
-
-            )}
-
-
-
-            {/* Real Tickets */}
-
-            {!loading &&
-              recentTickets.map((ticket) => (
-
-                <div
-                  className="admin-table-row"
-                  key={ticket.ticket_id}
-                >
-
-
-                  <span>
-                    #{ticket.ticket_id}
-                  </span>
-
-
-                  <span>
-                    {ticket.category || "Maintenance Issue"}
-                  </span>
-
-
-                  <span
-                    className={getPriorityClass(
-                      ticket.priority
-                    )}
-                  >
-                    {ticket.priority}
-                  </span>
-
-
-                  <span>
-                    {ticket.technician_name ||
-                      "Not Assigned"}
-                  </span>
-
-
-                  <span
-                    className={getStatusClass(
-                      ticket.status
-                    )}
-                  >
-                    {ticket.status}
-                  </span>
-
-
-                </div>
-
-              ))}
-
-
-          </div>
-
-        </section>
-
-
-
-        {/* =================================================
-            SYSTEM OVERVIEW
-        ================================================= */}
-
-        <section className="admin-overview-section">
-
-
-          {/* Users */}
-
-          <div className="admin-overview-card">
-
-            <div className="overview-icon">
-              👥
-            </div>
-
-
-            <div>
-
-              <h3>
-                User Management
-              </h3>
-
-
-              <p>
-                Manage students, faculty and maintenance staff accounts.
-              </p>
-
-            </div>
-
-
-            <Link to="/manage-users">
-              Manage Users →
-            </Link>
-
-          </div>
-
-
-
-          {/* Technicians */}
-
-          <div className="admin-overview-card">
-
-            <div className="overview-icon">
-              👨‍🔧
-            </div>
-
-
-            <div>
-
-              <h3>
-                Technician Management
-              </h3>
-
-
-              <p>
-                Manage technicians and monitor their assigned work.
-              </p>
-
-            </div>
-
-
-            <Link to="/admin-technicians">
-              View Technicians →
-            </Link>
-
-          </div>
-
-
-
-          {/* Reports */}
-
-          <div className="admin-overview-card">
-
-            <div className="overview-icon">
-              📊
-            </div>
-
-
-            <div>
-
-              <h3>
-                Reports & Analytics
-              </h3>
-
-
-              <p>
-                View ticket statistics and campus maintenance reports.
-              </p>
-
-            </div>
-
-
-            <Link to="/admin-reports">
-              View Reports →
-            </Link>
-
-          </div>
-
-
-        </section>
-
-
-
-        {/* =================================================
-            QUICK ACTIONS
-        ================================================= */}
-
-        <section className="admin-quick-section">
-
-
-          <h2>
-            Quick Actions
-          </h2>
-
-
-          <div className="admin-quick-grid">
-
-
-            {/* Manage Tickets */}
 
             <Link
               to="/admin-tickets"
-              className="admin-action-card"
+              className="dashboard-report-btn"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "10px 18px",
+                textDecoration: "none",
+                fontSize: "14px",
+              }}
             >
-
-              <span>
-                🎫
-              </span>
-
-
-              <h3>
-                Manage Tickets
-              </h3>
-
-
-              <p>
-                View, assign and update maintenance tickets.
-              </p>
-
+              <span>🎫</span> View All Tickets
             </Link>
+          </div>
+        </div>
 
+        {error && <div className="notification-error" style={{ margin: "15px 0" }}>⚠️ {error}</div>}
 
-
-            {/* Manage Users */}
-
-            <Link
-              to="/manage-users"
-              className="admin-action-card"
-            >
-
-              <span>
-                👥
-              </span>
-
-
-              <h3>
-                Manage Users
-              </h3>
-
-
-              <p>
-                View and manage student, faculty and technician accounts.
-              </p>
-
-            </Link>
-
-
-
-            {/* Categories */}
-
-            <Link
-              to="/manage-categories"
-              className="admin-action-card"
-            >
-
-              <span>
-                🏷️
-              </span>
-
-
-              <h3>
-                Manage Categories
-              </h3>
-
-
-              <p>
-                Add and manage campus maintenance categories.
-              </p>
-
-            </Link>
-
-
-
-            {/* Reports */}
-
-            <Link
-              to="/admin-reports"
-              className="admin-action-card"
-            >
-
-              <span>
-                📈
-              </span>
-
-
-              <h3>
-                Generate Reports
-              </h3>
-
-
-              <p>
-                View maintenance statistics and reports.
-              </p>
-
-            </Link>
-
-
+        {/* 6 KEY METRICS CARDS */}
+        <section className="stats-grid" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
+          <div className="stat-card">
+            <span className="stat-icon">📋</span>
+            <div>
+              <h3>{statistics.total_tickets ?? 0}</h3>
+              <p>Total Complaints</p>
+            </div>
           </div>
 
+          <div className="stat-card">
+            <span className="stat-icon">⏳</span>
+            <div>
+              <h3>{statistics.pending ?? 0}</h3>
+              <p>Pending / Unassigned</p>
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <span className="stat-icon">🔧</span>
+            <div>
+              <h3>{statistics.in_progress ?? 0}</h3>
+              <p>In Progress</p>
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <span className="stat-icon">✅</span>
+            <div>
+              <h3>{statistics.resolved ?? 0}</h3>
+              <p>Resolved</p>
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <span className="stat-icon">👨‍🔧</span>
+            <div>
+              <h3>{statistics.total_technicians ?? 0}</h3>
+              <p>Technicians</p>
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <span className="stat-icon">👥</span>
+            <div>
+              <h3>{statistics.total_users ?? 0}</h3>
+              <p>Total Members</p>
+            </div>
+          </div>
         </section>
 
+        {/* TWO COLUMN SECTION: RECENT TICKETS & CATEGORY BREAKDOWN */}
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "24px", marginTop: "24px" }}>
+          {/* RECENT TICKETS TABLE */}
+          <section className="admin-tickets-section" style={{ background: "var(--cf-card)", padding: "24px", borderRadius: "16px", border: "1px solid var(--cf-border)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
+              <div>
+                <h2 style={{ color: "#ffffff", margin: 0, fontSize: "18px" }}>Recent Campus Complaints</h2>
+                <p style={{ color: "var(--cf-muted)", fontSize: "13px", margin: "4px 0 0 0" }}>Latest submissions across academic blocks and hostels</p>
+              </div>
 
+              <Link to="/admin-tickets" style={{ color: "var(--cf-lime)", textDecoration: "none", fontSize: "13px", fontWeight: "600" }}>
+                View All →
+              </Link>
+            </div>
+
+            {loading ? (
+              <p style={{ color: "var(--cf-muted)", padding: "20px" }}>Loading tickets...</p>
+            ) : recentTickets.length === 0 ? (
+              <p style={{ color: "var(--cf-muted)", padding: "20px" }}>No tickets recorded in the system.</p>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table className="users-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      <th>Ticket ID</th>
+                      <th>Category</th>
+                      <th>Location</th>
+                      <th>Reported By</th>
+                      <th>Priority</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentTickets.map((ticket) => (
+                      <tr key={ticket.id}>
+                        <td>
+                          <strong style={{ color: "var(--cf-lime)", fontFamily: "monospace" }}>
+                            #{ticket.ticket_id}
+                          </strong>
+                        </td>
+                        <td style={{ color: "#e2e8f0" }}>{ticket.category}</td>
+                        <td style={{ color: "var(--cf-muted)" }}>{ticket.location}</td>
+                        <td style={{ color: "#ffffff" }}>{ticket.user_name}</td>
+                        <td>
+                          <span className={`priority ${getPriorityClass(ticket.priority)}`}>
+                            {ticket.priority}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`status ${getStatusClass(ticket.status)}`}>
+                            {ticket.status}
+                          </span>
+                        </td>
+                        <td>
+                          <Link
+                            to="/admin-tickets"
+                            style={{
+                              background: "rgba(163, 230, 53, 0.12)",
+                              color: "var(--cf-lime)",
+                              border: "1px solid var(--cf-lime)",
+                              padding: "4px 10px",
+                              borderRadius: "6px",
+                              textDecoration: "none",
+                              fontSize: "12px",
+                              fontWeight: "600",
+                            }}
+                          >
+                            Manage
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          {/* CATEGORY WORKLOAD DISTRIBUTION */}
+          <section style={{ background: "var(--cf-card)", padding: "24px", borderRadius: "16px", border: "1px solid var(--cf-border)" }}>
+            <h2 style={{ color: "#ffffff", margin: "0 0 4px 0", fontSize: "18px" }}>Category Workload</h2>
+            <p style={{ color: "var(--cf-muted)", fontSize: "13px", margin: "0 0 18px 0" }}>Live complaint volume by category</p>
+
+            {categoryDistribution.length === 0 ? (
+              <p style={{ color: "var(--cf-muted)" }}>No category statistics available.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                {categoryDistribution.map((cat, idx) => {
+                  const pct = Math.round(((cat.count || 0) / totalCatSum) * 100);
+                  return (
+                    <div key={idx}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px", fontSize: "13px" }}>
+                        <span style={{ color: "#ffffff", fontWeight: "500" }}>{cat.name}</span>
+                        <span style={{ color: "var(--cf-lime)", fontWeight: "700" }}>
+                          {cat.count} ({pct}%)
+                        </span>
+                      </div>
+                      <div style={{ width: "100%", height: "8px", background: "rgba(255, 255, 255, 0.08)", borderRadius: "4px", overflow: "hidden" }}>
+                        <div
+                          style={{
+                            width: `${pct}%`,
+                            height: "100%",
+                            background: "linear-gradient(90deg, #16a34a, #a3e635)",
+                            borderRadius: "4px",
+                          }}
+                        ></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div style={{ marginTop: "24px", paddingTop: "18px", borderTop: "1px solid var(--cf-border)" }}>
+              <Link
+                to="/categories"
+                style={{
+                  color: "var(--cf-lime)",
+                  textDecoration: "none",
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  display: "block",
+                  textAlign: "center",
+                }}
+              >
+                ⚙️ Manage Categories & SLA Limits →
+              </Link>
+            </div>
+          </section>
+        </div>
       </main>
-
     </div>
-
   );
 }
 

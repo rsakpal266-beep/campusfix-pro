@@ -1,305 +1,223 @@
-"""Database initialization and seeding helper for CampusFix Pro."""
+"""Database initialization and seeding helper for CampusFix Pro (12 tables)."""
 
-import os
-import time
-import psycopg2
-from werkzeug.security import generate_password_hash
-
-from db import get_db_connection
+from datetime import datetime
+from sqlalchemy import text
+from database import engine, SessionLocal, Base
+from models import (
+    User,
+    Category,
+    Location,
+    Ticket,
+    TicketHistory,
+    TicketComment,
+    TicketFeedback,
+    Notification,
+    InventoryItem,
+    TechnicianAssignment,
+    FixBotChatLog,
+)
+from security import hash_password
 
 CATEGORIES = [
-    (1, "Electrical", "Electrical fixtures, wiring, lights, fans, and appliances"),
-    (2, "Plumbing", "Water supply, leakages, taps, drainage, and sanitation"),
-    (3, "Furniture", "Desks, chairs, tables, benches, and classroom furniture"),
-    (4, "Cleaning", "Campus cleanliness, waste disposal, washrooms, and hygiene"),
-    (5, "Internet / Network", "Wi-Fi, Ethernet, routers, and campus network connectivity"),
-    (6, "Classroom Equipment", "Projectors, smartboards, audio systems, and lab tools"),
-    (7, "Other", "General campus maintenance and miscellaneous issues"),
+    (1, "Electrical", "Electrical fixtures, wiring, lights, fans, and appliances", "zap"),
+    (2, "Plumbing", "Water supply, leakages, taps, drainage, and sanitation", "droplet"),
+    (3, "Furniture", "Desks, chairs, tables, benches, and classroom furniture", "chair"),
+    (4, "Cleaning", "Campus cleanliness, waste disposal, washrooms, and hygiene", "sparkles"),
+    (5, "Internet / Network", "Wi-Fi, Ethernet, routers, and campus network connectivity", "wifi"),
+    (6, "Classroom Equipment", "Projectors, smartboards, audio systems, and lab tools", "monitor"),
+    (7, "Other", "General campus maintenance and miscellaneous issues", "wrench"),
 ]
 
-DEFAULT_USERS = [
-    (
-        "CampusFix Administrator",
-        "admin@campusfix.com",
-        "Admin@123",
-        "admin",
-        "Administration",
-        "System Administrator",
-        "+91 98765 43210",
-    ),
-    (
-        "Rahul Patil",
-        "rahul@campusfix.com",
-        "Tech@123",
-        "technician",
-        "Facilities & Maintenance",
-        "Senior Electrical & Plumbing Technician",
-        "+91 98765 43211",
-    ),
-    (
-        "Demo Student",
-        "student@campusfix.com",
-        "Student@123",
-        "student",
-        "Computer Engineering",
-        "Undergraduate Student",
-        "+91 98765 43212",
-    ),
+DEFAULT_LOCATIONS = [
+    ("Block A - Academic Wing", "BLK-A", "Ground Floor", "Room 004 Restroom", "Near East Stairs"),
+    ("Block A - Academic Wing", "BLK-A", "2nd Floor", "Room 204 Lecture Hall", "Opposite Faculty Lounge"),
+    ("Central Library", "LIB", "1st Floor", "Main Reading Hall", "Near Rack 4"),
+    ("Seminar Complex", "SEM", "Ground Floor", "Seminar Hall 1", "Main Entrance lobby"),
+    ("Science & Innovation Lab", "LAB-S", "3rd Floor", "IoT & Robotics Lab", "Wing B"),
+    ("Hostel Block 1", "HST-1", "2nd Floor", "Room 218", "Boys Hostel Wing"),
 ]
 
-SCHEMA_SQL = """
-CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
-    full_name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    role VARCHAR(20) NOT NULL,
-    phone VARCHAR(50),
-    department VARCHAR(255),
-    specialization VARCHAR(255),
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS categories (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL UNIQUE,
-    description TEXT,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS tickets (
-    id SERIAL PRIMARY KEY,
-    ticket_id VARCHAR(50) NOT NULL UNIQUE,
-    user_id INTEGER NOT NULL REFERENCES users (id),
-    category_id INTEGER NOT NULL REFERENCES categories (id),
-    technician_id INTEGER REFERENCES users (id),
-    location VARCHAR(255) NOT NULL,
-    priority VARCHAR(20) NOT NULL,
-    description TEXT NOT NULL,
-    status VARCHAR(50) NOT NULL DEFAULT 'Submitted',
-    image_path TEXT,
-    resolution_details TEXT,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS notifications (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users (id),
-    ticket_id INTEGER REFERENCES tickets (id),
-    title VARCHAR(255) NOT NULL,
-    message TEXT NOT NULL,
-    is_read BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE OR REPLACE FUNCTION set_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS tickets_updated_at ON tickets;
-CREATE TRIGGER tickets_updated_at
-BEFORE UPDATE ON tickets
-FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-"""
+DEFAULT_INVENTORY = [
+    ("LED Tube Light 20W", "ELEC-LED-20", 1, 45, "pieces", 10, 150.00),
+    ("Ceiling Fan Regulator Switch", "ELEC-REG-01", 1, 30, "pieces", 5, 80.00),
+    ("Brass Water Tap 0.5 inch", "PLUMB-TAP-05", 2, 25, "pieces", 6, 280.00),
+    ("PVC Pipe Joint Elbow", "PLUMB-ELB-02", 2, 60, "pieces", 15, 45.00),
+    ("Ergonomic Desk Chair Wheel", "FURN-WHL-01", 3, 40, "pieces", 8, 120.00),
+    ("Cat6 Ethernet Cable (305m roll)", "NET-CAT6-300", 5, 4, "rolls", 2, 4500.00),
+    ("HDMI to USB-C 4K Cable 5m", "AV-HDMI-5M", 6, 18, "pieces", 4, 650.00),
+]
 
 
-def wait_for_database(max_retries: int = 15, delay_seconds: int = 2):
-    """Wait until PostgreSQL is accepting connections."""
-    for attempt in range(1, max_retries + 1):
-        try:
-            conn = get_db_connection()
-            conn.close()
-            print(f"[CampusFix Pro] Database connection established (attempt {attempt}).")
-            return True
-        except psycopg2.OperationalError as e:
-            print(f"[CampusFix Pro] Waiting for database ({attempt}/{max_retries})... {e}")
-            time.sleep(delay_seconds)
-    raise RuntimeError("Could not connect to PostgreSQL after multiple retries.")
-
-
-def init_db():
-    """Ensure database tables, categories, and initial users exist."""
-    print("[CampusFix Pro] Starting database initialization and verification...")
-
+def run_migrations():
+    """Ensure database schema is up-to-date with non-breaking column additions."""
     try:
-        wait_for_database()
+        with engine.begin() as conn:
+            dialect = engine.dialect.name
+            if dialect == "postgresql":
+                # categories
+                conn.execute(text("ALTER TABLE categories ADD COLUMN IF NOT EXISTS icon VARCHAR(50) DEFAULT 'wrench';"))
+                conn.execute(text("ALTER TABLE categories ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;"))
+                conn.execute(text("ALTER TABLE categories ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;"))
+                # users
+                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS college_name VARCHAR(255);"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_by_id INTEGER REFERENCES users(id) ON DELETE SET NULL;"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS specialization VARCHAR(255);"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS student_or_emp_id VARCHAR(100);"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50);"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS department VARCHAR(255);"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;"))
+                # tickets
+                conn.execute(text("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS estimated_cost NUMERIC(10,2) DEFAULT 0.00;"))
+                conn.execute(text("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS resolution_details TEXT;"))
+                conn.execute(text("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMP;"))
+                # notifications
+                conn.execute(text("ALTER TABLE notifications ADD COLUMN IF NOT EXISTS type VARCHAR(50) DEFAULT 'ticket';"))
+            elif dialect == "sqlite":
+                # categories
+                try:
+                    res = conn.execute(text("PRAGMA table_info(categories);")).fetchall()
+                    cols = [r[1] for r in res]
+                    if cols:
+                        if "icon" not in cols:
+                            conn.execute(text("ALTER TABLE categories ADD COLUMN icon VARCHAR(50) DEFAULT 'wrench';"))
+                        if "is_active" not in cols:
+                            conn.execute(text("ALTER TABLE categories ADD COLUMN is_active BOOLEAN DEFAULT 1;"))
+                        if "created_at" not in cols:
+                            conn.execute(text("ALTER TABLE categories ADD COLUMN created_at TIMESTAMP;"))
+                except Exception:
+                    pass
+
+                # users
+                try:
+                    res = conn.execute(text("PRAGMA table_info(users);")).fetchall()
+                    cols = [r[1] for r in res]
+                    if cols:
+                        if "college_name" not in cols:
+                            conn.execute(text("ALTER TABLE users ADD COLUMN college_name VARCHAR(255);"))
+                        if "created_by_id" not in cols:
+                            conn.execute(text("ALTER TABLE users ADD COLUMN created_by_id INTEGER;"))
+                        if "specialization" not in cols:
+                            conn.execute(text("ALTER TABLE users ADD COLUMN specialization VARCHAR(255);"))
+                        if "student_or_emp_id" not in cols:
+                            conn.execute(text("ALTER TABLE users ADD COLUMN student_or_emp_id VARCHAR(100);"))
+                        if "phone" not in cols:
+                            conn.execute(text("ALTER TABLE users ADD COLUMN phone VARCHAR(50);"))
+                        if "department" not in cols:
+                            conn.execute(text("ALTER TABLE users ADD COLUMN department VARCHAR(255);"))
+                        if "is_active" not in cols:
+                            conn.execute(text("ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT 1;"))
+                except Exception:
+                    pass
     except Exception as e:
-        print(f"[CampusFix Pro] Warning: Database wait failed: {e}")
-        return False
+        print(f"[CampusFix Pro] Schema migration note: {e}")
 
-    conn = None
-    cur = None
+
+def init_db() -> bool:
+    """Create all 12 tables and seed default baseline data."""
+    print("[CampusFix Pro] Initializing 12 database tables...")
+
     try:
-        conn = get_db_connection()
-        cur = conn.cursor()
+        # Create all tables defined in Base metadata
+        Base.metadata.create_all(bind=engine)
+        print("[CampusFix Pro] All 12 tables verified / created.")
 
-        # 1. Execute schema creation
-        cur.execute(SCHEMA_SQL)
-        conn.commit()
-        print("[CampusFix Pro] Core schema tables verified/created.")
+        # Run safe migrations for existing tables
+        run_migrations()
 
-        # 2. Seed default categories (with exact IDs 1-7 expected by frontend)
-        for cat_id, name, desc in CATEGORIES:
-            cur.execute(
-                """
-                INSERT INTO categories (id, name, description)
-                VALUES (%s, %s, %s)
-                ON CONFLICT (id) DO UPDATE
-                SET name = EXCLUDED.name, description = EXCLUDED.description
-                """,
-                (cat_id, name, desc),
-            )
-        # Advance the sequence to prevent ID conflicts on future category creation
-        cur.execute(
-            "SELECT setval('categories_id_seq', (SELECT COALESCE(MAX(id), 1) FROM categories));"
-        )
-        conn.commit()
-        print("[CampusFix Pro] Categories verified/seeded.")
+        db = SessionLocal()
 
-        # 3. Seed default users
-        user_ids = {}
-        for full_name, email, password, role, dept, spec, phone in DEFAULT_USERS:
-            cur.execute("SELECT id FROM users WHERE email = %s", (email,))
-            existing = cur.fetchone()
-            if existing is None:
-                cur.execute(
-                    """
-                    INSERT INTO users
-                    (full_name, email, password_hash, role, department, specialization, phone)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    RETURNING id
-                    """,
-                    (
-                        full_name,
-                        email,
-                        generate_password_hash(password),
-                        role,
-                        dept,
-                        spec,
-                        phone,
-                    ),
-                )
-                new_id = cur.fetchone()[0]
-                user_ids[role] = new_id
-                print(f"[CampusFix Pro] Created {role} user: {email}")
+        # 1. Seed Categories
+        for cat_id, name, desc, icon in CATEGORIES:
+            cat = db.query(Category).filter(Category.id == cat_id).first()
+            if not cat:
+                cat = Category(id=cat_id, name=name, description=desc, icon=icon, is_active=True)
+                db.add(cat)
             else:
-                user_ids[role] = existing[0]
-                # Update password hash to guarantee default seeded credentials work
-                cur.execute(
-                    """
-                    UPDATE users
-                    SET password_hash = %s, full_name = %s, role = %s
-                    WHERE id = %s
-                    """,
-                    (
-                        generate_password_hash(password),
-                        full_name,
-                        role,
-                        existing[0],
-                    ),
+                cat.name = name
+                cat.description = desc
+                cat.icon = icon
+        db.commit()
+        print("[CampusFix Pro] Categories seeded.")
+
+        # 2. Seed Locations
+        if db.query(Location).count() == 0:
+            for b_name, b_code, floor, room, landmark in DEFAULT_LOCATIONS:
+                loc = Location(
+                    building_name=b_name,
+                    block_code=b_code,
+                    floor=floor,
+                    room_number=room,
+                    landmark=landmark,
+                    is_active=True,
                 )
-        conn.commit()
-        print("[CampusFix Pro] Users verified/seeded.")
+                db.add(loc)
+            db.commit()
+            print("[CampusFix Pro] Locations seeded.")
 
-        # 4. Seed sample tickets if none exist
-        cur.execute("SELECT COUNT(*) FROM tickets")
-        ticket_count = cur.fetchone()[0]
-        if ticket_count == 0 and "student" in user_ids and "technician" in user_ids:
-            student_id = user_ids["student"]
-            tech_id = user_ids["technician"]
-
-            sample_tickets = [
-                (
-                    "CF-1001",
-                    student_id,
-                    2,  # Plumbing
-                    tech_id,
-                    "Block A - Ground Floor Restroom",
-                    "High",
-                    "Continuous water leakage from pipe joint under the sink.",
-                    "In Progress",
-                ),
-                (
-                    "CF-1002",
-                    student_id,
-                    1,  # Electrical
-                    tech_id,
-                    "Room 204 - 2nd Floor",
-                    "Medium",
-                    "Ceiling fan making loud grinding noise and running at low speed.",
-                    "In Progress",
-                ),
-                (
-                    "CF-1003",
-                    student_id,
-                    3,  # Furniture
-                    tech_id,
-                    "Central Library - Reading Hall",
-                    "Low",
-                    "Broken wooden armrest on study chair near rack 4.",
-                    "Resolved",
-                ),
-                (
-                    "CF-1004",
-                    student_id,
-                    6,  # Classroom Equipment
-                    None,
-                    "Seminar Hall 1",
-                    "High",
-                    "Overhead projector flickering and losing HDMI signal intermittently.",
-                    "Submitted",
-                ),
-            ]
-
-            for t_id, u_id, cat_id, t_tech_id, loc, prio, desc, status in sample_tickets:
-                cur.execute(
-                    """
-                    INSERT INTO tickets
-                    (ticket_id, user_id, category_id, technician_id, location, priority, description, status)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING id
-                    """,
-                    (t_id, u_id, cat_id, t_tech_id, loc, prio, desc, status),
+        # 3. Seed Inventory Items
+        for name, code, cat_id, qty, unit, min_t, cost in DEFAULT_INVENTORY:
+            inv = db.query(InventoryItem).filter(InventoryItem.item_code == code).first()
+            if not inv:
+                inv = InventoryItem(
+                    item_name=name,
+                    item_code=code,
+                    category_id=cat_id,
+                    quantity=qty,
+                    unit=unit,
+                    min_threshold=min_t,
+                    unit_cost=cost,
                 )
-                db_ticket_id = cur.fetchone()[0]
+                db.add(inv)
+        db.commit()
+        print("[CampusFix Pro] Inventory items seeded.")
 
-                # Create sample notification for student
-                cur.execute(
-                    """
-                    INSERT INTO notifications
-                    (user_id, ticket_id, title, message)
-                    VALUES (%s, %s, %s, %s)
-                    """,
-                    (
-                        u_id,
-                        db_ticket_id,
-                        f"Ticket #{t_id} {status}",
-                        f"Your ticket #{t_id} ({loc}) status is currently: {status}.",
-                    ),
-                )
+        # 4. Remove any legacy demo seed accounts and seed tickets so system starts completely clean
+        legacy_emails = [
+            "admin@campusfix.com",
+            "faculty@campusfix.com",
+            "rahul@campusfix.com",
+            "student@campusfix.com",
+            "tech@campusfix.com",
+            "test@gmailcom",
+        ]
+        legacy_users = db.query(User).filter(User.email.in_(legacy_emails)).all()
+        legacy_user_ids = [u.id for u in legacy_users]
+        if legacy_user_ids:
+            # Delete notifications
+            db.query(Notification).filter(Notification.user_id.in_(legacy_user_ids)).delete(synchronize_session=False)
+            # Find tickets by or assigned to these users
+            tickets_to_clean = db.query(Ticket).filter(
+                (Ticket.user_id.in_(legacy_user_ids)) | (Ticket.technician_id.in_(legacy_user_ids))
+            ).all()
+            ticket_ids = [t.id for t in tickets_to_clean]
+            if ticket_ids:
+                db.query(Notification).filter(Notification.ticket_id.in_(ticket_ids)).delete(synchronize_session=False)
+                db.query(TicketComment).filter(TicketComment.ticket_id.in_(ticket_ids)).delete(synchronize_session=False)
+                db.query(TicketHistory).filter(TicketHistory.ticket_id.in_(ticket_ids)).delete(synchronize_session=False)
+                db.query(TicketFeedback).filter(TicketFeedback.ticket_id.in_(ticket_ids)).delete(synchronize_session=False)
+                db.query(TechnicianAssignment).filter(TechnicianAssignment.ticket_id.in_(ticket_ids)).delete(synchronize_session=False)
+                db.query(Ticket).filter(Ticket.id.in_(ticket_ids)).delete(synchronize_session=False)
+            
+            # Reset created_by_id if any remaining users reference legacy admin
+            db.query(User).filter(User.created_by_id.in_(legacy_user_ids)).update({User.created_by_id: None}, synchronize_session=False)
+            # Delete legacy users
+            db.query(User).filter(User.id.in_(legacy_user_ids)).delete(synchronize_session=False)
+            db.commit()
+            print(f"[CampusFix Pro] Purged {len(legacy_user_ids)} legacy seed users and all demo tickets.")
+        else:
+            print("[CampusFix Pro] Database ready without seed users. Colleges register via /register.")
 
-            conn.commit()
-            print("[CampusFix Pro] Sample tickets and notifications seeded.")
-
+        db.close()
         print("[CampusFix Pro] Database initialization completed successfully!")
         return True
 
     except Exception as e:
-        if conn:
-            conn.rollback()
-        print(f"[CampusFix Pro] Error during database initialization: {e}")
+        print(f"[CampusFix Pro] Database initialization error: {e}")
+        import traceback
+        traceback.print_exc()
         return False
-
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
 
 
 if __name__ == "__main__":

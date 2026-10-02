@@ -1,733 +1,375 @@
-from flask import Blueprint, request, jsonify
-import psycopg2
-from psycopg2.extras import RealDictCursor
-import jwt
+"""Authentication routes for CampusFix Pro (FastAPI)."""
 
 from datetime import datetime, timedelta, timezone
+from typing import Dict, Any
+import jwt
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
 
-from werkzeug.security import (
-    generate_password_hash,
-    check_password_hash
+from config import JWT_SECRET_KEY, JWT_ALGORITHM
+from database import get_db
+from models import User
+from schemas import (
+    LoginRequest,
+    LoginResponse,
+    UserCreate,
+    CollegeRegisterRequest,
+    ProfileUpdateRequest,
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
+    ChangePasswordRequest,
+)
+from security import (
+    verify_password,
+    hash_password,
+    create_access_token,
+    get_current_user,
 )
 
-from config import JWT_SECRET_KEY
-from db import get_db_connection
-
-auth_bp = Blueprint("auth", __name__)
+router = APIRouter(prefix="/api", tags=["Auth"])
 
 
-# =========================================================
-# REGISTER
-# =========================================================
+# -------------------------------------------------------------
+# REGISTER (Only for Colleges / Institutional Accounts)
+# -------------------------------------------------------------
 
-@auth_bp.route("/api/register", methods=["POST"])
-def register():
+@router.post("/register", status_code=status.HTTP_201_CREATED)
+@router.post("/college/register", status_code=status.HTTP_201_CREATED)
+def register_college(payload: Dict[str, Any], db: Session = Depends(get_db)):
+    """
+    Register a College / Institution account.
+    Students, Faculty, and Technicians cannot self-register;
+    they are onboarded by their College Admin with an email & password.
+    """
+    raw_role = str(payload.get("role", "")).strip().lower()
 
-    data = request.get_json()
-
-    if not data:
-        return jsonify({
-            "status": "error",
-            "message": "No registration data received."
-        }), 400
-
-    full_name = data.get("full_name", "").strip()
-    email = data.get("email", "").strip()
-    password = data.get("password", "")
-    role = data.get("role", "").strip().lower()
-
-    # Validate required fields
-    if not full_name or not email or not password or not role:
-        return jsonify({
-            "status": "error",
-            "message": "All required fields must be filled."
-        }), 400
-
-    # Public registration is only for Student and Faculty
-    if role not in ["student", "faculty"]:
-        return jsonify({
-            "status": "error",
-            "message": "Only Student and Faculty registration is allowed."
-        }), 400
-
-    connection = None
-    cursor = None
-
-    try:
-
-        connection = get_db_connection()
-        cursor = connection.cursor()
-
-        # Check whether email already exists
-        cursor.execute(
-            "SELECT id FROM users WHERE email = %s",
-            (email,)
+    # Block students, faculty, and technicians from self-registration
+    if raw_role in ["student", "faculty", "technician"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"Self-registration is not allowed for {raw_role.capitalize()} accounts. "
+                "Your College Administrator must add your account from their dashboard and "
+                "provide you with your login email and password."
+            ),
         )
 
-        existing_user = cursor.fetchone()
+    # College Registration Details
+    college_name = str(payload.get("college_name") or "").strip()
+    admin_name = str(payload.get("admin_name") or payload.get("full_name") or "").strip()
+    email = str(payload.get("email") or "").strip().lower()
+    raw_password = str(payload.get("password") or "").strip()
+    phone = str(payload.get("phone") or "").strip()
+    campus_address = str(payload.get("campus_address") or payload.get("department") or "").strip()
+    college_code = str(payload.get("college_code") or payload.get("student_or_emp_id") or "").strip()
 
-        if existing_user:
-            return jsonify({
-                "status": "error",
-                "message": "An account with this email already exists."
-            }), 409
-
-        # Securely hash password
-        password_hash = generate_password_hash(password)
-
-        # Insert new user
-        cursor.execute(
-            """
-            INSERT INTO users
-            (full_name, email, password_hash, role)
-            VALUES (%s, %s, %s, %s)
-            """,
-            (
-                full_name,
-                email,
-                password_hash,
-                role
-            )
+    if not college_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="College / Institution Name is required.",
         )
 
-        connection.commit()
+    if not admin_name:
+        admin_name = f"{college_name} Administrator"
 
-        return jsonify({
-            "status": "success",
-            "message": "Registration successful!"
-        }), 201
+    if not email or "@" not in email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A valid official college email address is required.",
+        )
 
-    except psycopg2.Error as error:
+    if not raw_password or len(raw_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 6 characters long.",
+        )
 
-        if connection:
-            connection.rollback()
+    existing = db.query(User).filter(User.email == email).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"An account with email '{email}' already exists. Please sign in instead.",
+        )
 
-        import traceback
-        print("REGISTER ERROR:", str(error), flush=True)
-        traceback.print_exc()
-    
-        return jsonify({
-            "status": "error",
-            "message": "Registration failed.",
-            "error": str(error)
-        }), 500
+    new_college_admin = User(
+        full_name=admin_name,
+        email=email,
+        password_hash=hash_password(raw_password),
+        role="admin",
+        department=campus_address or "College Administration",
+        college_name=college_name,
+        student_or_emp_id=college_code or None,
+        phone=phone or None,
+        is_active=True,
+    )
+    db.add(new_college_admin)
+    db.commit()
+    db.refresh(new_college_admin)
 
-    finally:
+    # Generate JWT Token so the college admin is ready to access dashboard
+    token = create_access_token(
+        {
+            "user_id": new_college_admin.id,
+            "email": new_college_admin.email,
+            "role": new_college_admin.role,
+            "full_name": new_college_admin.full_name,
+            "college_name": new_college_admin.college_name,
+        }
+    )
 
-        if cursor:
-            cursor.close()
+    return {
+        "status": "success",
+        "message": f"College '{college_name}' registered successfully! You can now log in and onboard students, faculty, and technicians.",
+        "token": token,
+        "user": {
+            "id": new_college_admin.id,
+            "full_name": new_college_admin.full_name,
+            "email": new_college_admin.email,
+            "role": new_college_admin.role,
+            "college_name": new_college_admin.college_name,
+            "department": new_college_admin.department,
+            "phone": new_college_admin.phone,
+        },
+    }
 
-        if connection is not None:
-            connection.close()
 
+# -------------------------------------------------------------
+# LOGIN (For College Admin, Technicians, Students, & Faculty)
+# -------------------------------------------------------------
 
-# =========================================================
-# LOGIN
-# =========================================================
-
-@auth_bp.route("/api/login", methods=["POST"])
-def login():
-
-    data = request.get_json()
-
-    if not data:
-        return jsonify({
-            "status": "error",
-            "message": "No login data received."
-        }), 400
-
-    email = data.get("email", "").strip()
-    password = data.get("password", "")
+@router.post("/login", response_model=LoginResponse)
+@router.post("/auth/login", response_model=LoginResponse)
+def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    """
+    Login endpoint for all roles:
+    - College Administrator (registered with their college)
+    - Technicians (created by their college)
+    - Faculty (created by their college)
+    - Students (created by their college)
+    """
+    email = payload.email.strip().lower()
+    password = payload.password
 
     if not email or not password:
-        return jsonify({
-            "status": "error",
-            "message": "Email and password are required."
-        }), 400
-
-    connection = None
-    cursor = None
-
-    try:
-
-        connection = get_db_connection()
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
-
-        cursor.execute(
-            """
-            SELECT id, full_name, email, password_hash, role
-            FROM users
-            WHERE email = %s
-            """,
-            (email,)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email and password are required.",
         )
 
-        user = cursor.fetchone()
-
-        if not user:
-            return jsonify({
-                "status": "error",
-                "message": "Invalid email or password."
-            }), 401
-
-        # Verify password
-        if not check_password_hash(
-            user["password_hash"],
-            password
-        ):
-            return jsonify({
-                "status": "error",
-                "message": "Invalid email or password."
-            }), 401
-
-        # Create JWT token
-        token = jwt.encode(
-            {
-                "user_id": user["id"],
-                "email": user["email"],
-                "role": user["role"],
-                "exp": datetime.now(timezone.utc)
-                + timedelta(hours=24)
-            },
-            JWT_SECRET_KEY,
-            algorithm="HS256"
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Account not found. If you are a Student, Faculty, or Technician, make sure your College Admin has created your account.",
         )
 
-        return jsonify({
-            "status": "success",
-            "message": "Login successful!",
-            "token": token,
-            "user": {
-                "id": user["id"],
-                "full_name": user["full_name"],
-                "email": user["email"],
-                "role": user["role"]
-            }
-        }), 200
-
-    except psycopg2.Error as error:
-
-        return jsonify({
-            "status": "error",
-            "message": "Database error occurred.",
-            "error": str(error)
-        }), 500
-
-    finally:
-
-        if cursor:
-            cursor.close()
-
-        if connection is not None:
-            connection.close()
-
-
-# =========================================================
-# UPDATE PROFILE
-# =========================================================
-
-@auth_bp.route("/api/profile", methods=["PUT"])
-def update_profile():
-
-    # Get Authorization header
-    auth_header = request.headers.get("Authorization")
-
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({
-            "status": "error",
-            "message": "Authorization token is required."
-        }), 401
-
-    token = auth_header.split(" ")[1]
-
-    # Verify JWT token
-    try:
-
-        payload = jwt.decode(
-            token,
-            JWT_SECRET_KEY,
-            algorithms=["HS256"]
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been deactivated. Please contact your College Administration.",
         )
 
-        user_id = payload.get("user_id")
-
-        if not user_id:
-            return jsonify({
-                "status": "error",
-                "message": "Invalid user information."
-            }), 401
-
-    except jwt.ExpiredSignatureError:
-
-        return jsonify({
-            "status": "error",
-            "message": "Login session has expired. Please login again."
-        }), 401
-
-    except jwt.InvalidTokenError:
-
-        return jsonify({
-            "status": "error",
-            "message": "Invalid authorization token."
-        }), 401
-
-    # Get request data
-    data = request.get_json()
-
-    if not data:
-        return jsonify({
-            "status": "error",
-            "message": "No profile data received."
-        }), 400
-
-    full_name = data.get("full_name", "").strip()
-
-    if not full_name:
-        return jsonify({
-            "status": "error",
-            "message": "Full name is required."
-        }), 400
-
-    connection = None
-    cursor = None
-
-    try:
-
-        connection = get_db_connection()
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
-
-        # Update user's full name
-        cursor.execute(
-            """
-            UPDATE users
-            SET full_name = %s
-            WHERE id = %s
-            """,
-            (
-                full_name,
-                user_id
-            )
+    if not verify_password(password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid password. Please check your credentials or ask your College Admin to reset your password.",
         )
 
-        if cursor.rowcount == 0:
-            return jsonify({
-                "status": "error",
-                "message": "User account not found."
-            }), 404
+    # Generate JWT Token
+    token = create_access_token(
+        {
+            "user_id": user.id,
+            "email": user.email,
+            "role": user.role,
+            "full_name": user.full_name,
+            "college_name": user.college_name,
+        }
+    )
 
-        connection.commit()
+    return {
+        "status": "success",
+        "message": f"Welcome back, {user.full_name}!",
+        "token": token,
+        "user": {
+            "id": user.id,
+            "full_name": user.full_name,
+            "email": user.email,
+            "role": user.role,
+            "college_name": user.college_name or "Campus",
+            "department": user.department,
+            "phone": user.phone,
+            "specialization": user.specialization,
+            "student_or_emp_id": user.student_or_emp_id,
+        },
+    }
 
-        # Get updated user information
-        cursor.execute(
-            """
-            SELECT id, full_name, email, role
-            FROM users
-            WHERE id = %s
-            """,
-            (user_id,)
+
+# -------------------------------------------------------------
+# PROFILE (GET & PUT)
+# -------------------------------------------------------------
+
+@router.get("/profile")
+def get_profile(current_user: User = Depends(get_current_user)):
+    return {
+        "status": "success",
+        "user": {
+            "id": current_user.id,
+            "full_name": current_user.full_name,
+            "email": current_user.email,
+            "role": current_user.role,
+            "department": current_user.department,
+            "specialization": current_user.specialization,
+            "phone": current_user.phone,
+            "student_or_emp_id": current_user.student_or_emp_id,
+            "college_name": current_user.college_name or "Campus",
+            "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
+        },
+    }
+
+
+@router.put("/profile")
+def update_profile(
+    payload: ProfileUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if payload.full_name is not None and payload.full_name.strip():
+        current_user.full_name = payload.full_name.strip()
+    if payload.phone is not None:
+        current_user.phone = payload.phone.strip()
+    if payload.department is not None:
+        current_user.department = payload.department.strip()
+    if payload.specialization is not None:
+        current_user.specialization = payload.specialization.strip()
+
+    db.commit()
+    db.refresh(current_user)
+
+    return {
+        "status": "success",
+        "message": "Profile updated successfully.",
+        "user": {
+            "id": current_user.id,
+            "full_name": current_user.full_name,
+            "email": current_user.email,
+            "role": current_user.role,
+            "department": current_user.department,
+            "specialization": current_user.specialization,
+            "phone": current_user.phone,
+        },
+    }
+
+
+# -------------------------------------------------------------
+# FORGOT & RESET PASSWORD
+# -------------------------------------------------------------
+
+@router.post("/forgot-password")
+def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    email = payload.email.strip().lower()
+    user = db.query(User).filter(User.email == email).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No account found with this email address.",
         )
 
-        user = cursor.fetchone()
+    # 15-minute reset token
+    reset_token = jwt.encode(
+        {
+            "user_id": user.id,
+            "email": user.email,
+            "purpose": "password_reset",
+            "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
+        },
+        JWT_SECRET_KEY,
+        algorithm=JWT_ALGORITHM,
+    )
 
-        return jsonify({
-            "status": "success",
-            "message": "Profile updated successfully.",
-            "user": user
-        }), 200
-
-    except psycopg2.Error as error:
-
-        if connection:
-            connection.rollback()
-
-        return jsonify({
-            "status": "error",
-            "message": "Database error occurred."
-        }), 500
-
-    finally:
-
-        if cursor:
-            cursor.close()
-
-        if connection is not None:
-            connection.close()
+    return {
+        "status": "success",
+        "message": "Password reset token generated successfully.",
+        "reset_token": reset_token,
+    }
 
 
-# =========================================================
-# FORGOT PASSWORD
-# =========================================================
-
-@auth_bp.route("/api/forgot-password", methods=["POST"])
-def forgot_password():
-
-    data = request.get_json()
-
-    if not data:
-        return jsonify({
-            "status": "error",
-            "message": "No data received."
-        }), 400
-
-    email = data.get("email", "").strip()
-
-    if not email:
-        return jsonify({
-            "status": "error",
-            "message": "Email is required."
-        }), 400
-
-    connection = None
-    cursor = None
-
-    try:
-
-        connection = get_db_connection()
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
-
-        cursor.execute(
-            """
-            SELECT id, email
-            FROM users
-            WHERE email = %s
-            """,
-            (email,)
-        )
-
-        user = cursor.fetchone()
-
-        if not user:
-            return jsonify({
-                "status": "error",
-                "message": "No account found with this email."
-            }), 404
-
-        # Create password reset token
-        reset_token = jwt.encode(
-            {
-                "user_id": user["id"],
-                "email": user["email"],
-                "purpose": "password_reset",
-                "exp": datetime.now(timezone.utc)
-                + timedelta(minutes=15)
-            },
-            JWT_SECRET_KEY,
-            algorithm="HS256"
-        )
-
-        return jsonify({
-            "status": "success",
-            "message": "Password reset request created successfully.",
-            "reset_token": reset_token
-        }), 200
-
-    except psycopg2.Error as error:
-
-        return jsonify({
-            "status": "error",
-            "message": "Database error occurred.",
-            "error": str(error)
-        }), 500
-
-    finally:
-
-        if cursor:
-            cursor.close()
-
-        if connection is not None:
-            connection.close()
-
-
-# =========================================================
-# RESET PASSWORD
-# =========================================================
-
-@auth_bp.route("/api/reset-password", methods=["POST"])
-def reset_password():
-
-    data = request.get_json()
-
-    if not data:
-        return jsonify({
-            "status": "error",
-            "message": "No data received."
-        }), 400
-
-    reset_token = data.get("reset_token", "")
-    new_password = data.get("new_password", "")
-
-    if not reset_token or not new_password:
-        return jsonify({
-            "status": "error",
-            "message": "Reset token and new password are required."
-        }), 400
-
+@router.post("/reset-password")
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    new_password = payload.new_password.strip()
     if len(new_password) < 6:
-        return jsonify({
-            "status": "error",
-            "message": "Password must contain at least 6 characters."
-        }), 400
-
-    try:
-
-        payload = jwt.decode(
-            reset_token,
-            JWT_SECRET_KEY,
-            algorithms=["HS256"]
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must contain at least 6 characters.",
         )
 
-        if payload.get("purpose") != "password_reset":
-            return jsonify({
-                "status": "error",
-                "message": "Invalid password reset token."
-            }), 400
-
-        user_id = payload.get("user_id")
-
-    except jwt.ExpiredSignatureError:
-
-        return jsonify({
-            "status": "error",
-            "message": "Password reset token has expired."
-        }), 400
-
-    except jwt.InvalidTokenError:
-
-        return jsonify({
-            "status": "error",
-            "message": "Invalid password reset token."
-        }), 400
-
-    connection = None
-    cursor = None
-
     try:
-
-        connection = get_db_connection()
-        cursor = connection.cursor()
-
-        # Hash new password
-        password_hash = generate_password_hash(new_password)
-
-        cursor.execute(
-            """
-            UPDATE users
-            SET password_hash = %s
-            WHERE id = %s
-            """,
-            (
-                password_hash,
-                user_id
+        data = jwt.decode(payload.reset_token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        if data.get("purpose") != "password_reset":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid password reset token.",
             )
-        )
-
-        if cursor.rowcount == 0:
-            return jsonify({
-                "status": "error",
-                "message": "User account not found."
-            }), 404
-
-        connection.commit()
-
-        return jsonify({
-            "status": "success",
-            "message": "Password reset successfully. You can now login."
-        }), 200
-
-    except psycopg2.Error as error:
-
-        if connection:
-            connection.rollback()
-
-        return jsonify({
-            "status": "error",
-            "message": "Database error occurred."
-        }), 500
-
-    finally:
-
-        if cursor:
-            cursor.close()
-
-        if connection is not None:
-            connection.close()
-
-
-# =========================================================
-# CHANGE PASSWORD
-# =========================================================
-
-@auth_bp.route("/api/change-password", methods=["POST"])
-def change_password():
-
-    data = request.get_json()
-
-    if not data:
-        return jsonify({
-            "status": "error",
-            "message": "No data received."
-        }), 400
-
-    # -----------------------------------------------------
-    # Get Authorization Token
-    # -----------------------------------------------------
-
-    auth_header = request.headers.get("Authorization")
-
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({
-            "status": "error",
-            "message": "Authorization token is required."
-        }), 401
-
-    token = auth_header.split(" ")[1]
-
-    # -----------------------------------------------------
-    # Verify JWT Token
-    # -----------------------------------------------------
-
-    try:
-
-        payload = jwt.decode(
-            token,
-            JWT_SECRET_KEY,
-            algorithms=["HS256"]
-        )
-
-        user_id = payload.get("user_id")
-
-        if not user_id:
-            return jsonify({
-                "status": "error",
-                "message": "Invalid user information."
-            }), 401
-
+        user_id = data.get("user_id")
     except jwt.ExpiredSignatureError:
-
-        return jsonify({
-            "status": "error",
-            "message": "Login session has expired. Please login again."
-        }), 401
-
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password reset token has expired.",
+        )
     except jwt.InvalidTokenError:
-
-        return jsonify({
-            "status": "error",
-            "message": "Invalid authorization token."
-        }), 401
-
-    # -----------------------------------------------------
-    # Get Password Data
-    # -----------------------------------------------------
-
-    current_password = data.get("current_password", "")
-    new_password = data.get("new_password", "")
-
-    if not current_password or not new_password:
-        return jsonify({
-            "status": "error",
-            "message": "Current password and new password are required."
-        }), 400
-
-    if len(new_password) < 6:
-        return jsonify({
-            "status": "error",
-            "message": "New password must contain at least 6 characters."
-        }), 400
-
-    if current_password == new_password:
-        return jsonify({
-            "status": "error",
-            "message": "New password must be different from current password."
-        }), 400
-
-    connection = None
-    cursor = None
-
-    try:
-
-        connection = get_db_connection()
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
-
-        # -------------------------------------------------
-        # Get Current Password Hash
-        # -------------------------------------------------
-
-        cursor.execute(
-            """
-            SELECT password_hash
-            FROM users
-            WHERE id = %s
-            """,
-            (user_id,)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid reset token.",
         )
 
-        user = cursor.fetchone()
-
-        if not user:
-            return jsonify({
-                "status": "error",
-                "message": "User account not found."
-            }), 404
-
-        # -------------------------------------------------
-        # Verify Current Password
-        # -------------------------------------------------
-
-        if not check_password_hash(
-            user["password_hash"],
-            current_password
-        ):
-            return jsonify({
-                "status": "error",
-                "message": "Current password is incorrect."
-            }), 401
-
-        # -------------------------------------------------
-        # Hash New Password
-        # -------------------------------------------------
-
-        new_password_hash = generate_password_hash(
-            new_password
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User account not found.",
         )
 
-        # -------------------------------------------------
-        # Update Password in PostgreSQL
-        # -------------------------------------------------
+    user.password_hash = hash_password(new_password)
+    db.commit()
 
-        cursor.execute(
-            """
-            UPDATE users
-            SET password_hash = %s
-            WHERE id = %s
-            """,
-            (
-                new_password_hash,
-                user_id
-            )
+    return {
+        "status": "success",
+        "message": "Password reset successfully. You can now login with your new password.",
+    }
+
+
+# -------------------------------------------------------------
+# CHANGE PASSWORD (FOR LOGGED IN USERS)
+# -------------------------------------------------------------
+
+@router.post("/change-password")
+def change_password(
+    payload: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not verify_password(payload.current_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect.",
         )
 
-        connection.commit()
+    if len(payload.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must contain at least 6 characters.",
+        )
 
-        return jsonify({
-            "status": "success",
-            "message": "Password changed successfully."
-        }), 200
+    if payload.current_password == payload.new_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be different from current password.",
+        )
 
-    except psycopg2.Error as error:
+    current_user.password_hash = hash_password(payload.new_password)
+    db.commit()
 
-        if connection:
-            connection.rollback()
-
-        return jsonify({
-            "status": "error",
-            "message": "Database error occurred."
-        }), 500
-
-    finally:
-
-        if cursor:
-            cursor.close()
-
-        if connection is not None:
-            connection.close()
+    return {
+        "status": "success",
+        "message": "Password changed successfully.",
+    }

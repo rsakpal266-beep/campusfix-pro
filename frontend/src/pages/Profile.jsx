@@ -114,11 +114,7 @@ function Profile() {
       );
 
     } catch (error) {
-
-      setError(
-        "Cannot connect to Flask backend."
-      );
-
+      setError("Cannot connect to backend server.");
     } finally {
 
       setLoading(false);
@@ -233,11 +229,7 @@ function Profile() {
       setConfirmPassword("");
 
     } catch (error) {
-
-      setPasswordError(
-        "Cannot connect to Flask backend."
-      );
-
+      setPasswordError("Cannot connect to backend server.");
     } finally {
 
       setPasswordLoading(false);

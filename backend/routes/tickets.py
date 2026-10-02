@@ -1,2158 +1,399 @@
-from flask import Blueprint, request, jsonify
-import psycopg2
-from psycopg2.extras import RealDictCursor
-import jwt
+"""Ticket management routes for CampusFix Pro (FastAPI)."""
 
-from config import JWT_SECRET_KEY
-from db import get_db_connection
+from datetime import datetime
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from sqlalchemy import desc
 
-tickets_bp = Blueprint("tickets", __name__)
+from database import get_db
+from models import (
+    User,
+    Category,
+    Ticket,
+    TicketHistory,
+    TicketComment,
+    TicketFeedback,
+    Notification,
+)
+from schemas import (
+    TicketCreate,
+    TicketCommentCreate,
+    TicketFeedbackCreate,
+)
+from security import get_current_user
+
+router = APIRouter(prefix="/api/tickets", tags=["Tickets"])
 
 
-def generate_ticket_id(cursor):
-    cursor.execute(
-        "SELECT ticket_id FROM tickets ORDER BY id DESC LIMIT 1"
+def generate_ticket_id(db: Session) -> str:
+    """Generate next sequential human-readable Ticket ID (e.g. CF-1005)."""
+    last_ticket = db.query(Ticket).order_by(desc(Ticket.id)).first()
+    if not last_ticket or not last_ticket.ticket_id:
+        return "CF-1001"
+    try:
+        num = int(last_ticket.ticket_id.split("-")[1])
+        return f"CF-{num + 1}"
+    except Exception:
+        return f"CF-{last_ticket.id + 1000}"
+
+
+# -------------------------------------------------------------
+# CREATE TICKET
+# -------------------------------------------------------------
+
+@router.post("", status_code=status.HTTP_201_CREATED)
+def create_ticket(
+    payload: TicketCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    category = db.query(Category).filter(Category.id == payload.category_id).first()
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Specified maintenance category not found.",
+        )
+
+    location = payload.location.strip()
+    description = payload.description.strip()
+    if not location or not description:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Location and description are required.",
+        )
+
+    ticket_code = generate_ticket_id(db)
+
+    ticket = Ticket(
+        ticket_id=ticket_code,
+        user_id=current_user.id,
+        category_id=payload.category_id,
+        location=location,
+        priority=payload.priority or "Medium",
+        description=description,
+        image_path=payload.image_path,
+        status="Submitted",
+    )
+    db.add(ticket)
+    db.commit()
+    db.refresh(ticket)
+
+    # Record initial history
+    history = TicketHistory(
+        ticket_id=ticket.id,
+        changed_by_user_id=current_user.id,
+        old_status=None,
+        new_status="Submitted",
+        comments="Ticket created and queued for review.",
+    )
+    db.add(history)
+
+    # Initial notification for user
+    notif = Notification(
+        user_id=current_user.id,
+        ticket_id=ticket.id,
+        title=f"Ticket #{ticket_code} Created",
+        message=f"Your complaint regarding {location} ({category.name}) has been submitted successfully.",
+        is_read=False,
+    )
+    db.add(notif)
+
+    # Also notify administrators of this college only
+    admins = (
+        db.query(User)
+        .filter(
+            User.role == "admin",
+            User.college_name == current_user.college_name,
+        )
+        .all()
+    )
+    for admin in admins:
+        admin_notif = Notification(
+            user_id=admin.id,
+            ticket_id=ticket.id,
+            title=f"New Complaint #{ticket_code}",
+            message=f"{current_user.full_name} ({current_user.role.title()}) raised a ticket for {location}: '{description[:50]}...'",
+            is_read=False,
+        )
+        db.add(admin_notif)
+
+    db.commit()
+
+    return {
+        "status": "success",
+        "message": f"Ticket #{ticket_code} created successfully!",
+        "ticket": {
+            "id": ticket.id,
+            "ticket_id": ticket.ticket_id,
+            "location": ticket.location,
+            "priority": ticket.priority,
+            "status": ticket.status,
+            "category": category.name,
+            "created_at": ticket.created_at.isoformat(),
+        },
+    }
+
+
+# -------------------------------------------------------------
+# MY TICKETS (Student & Faculty)
+# -------------------------------------------------------------
+
+@router.get("/my")
+def get_my_tickets(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    tickets = (
+        db.query(Ticket)
+        .filter(Ticket.user_id == current_user.id)
+        .order_by(desc(Ticket.created_at))
+        .all()
     )
 
-    last_ticket = cursor.fetchone()
-
-    if not last_ticket:
-        return "CF-1001"
-
-    last_id = last_ticket[0]
-
-    try:
-        number = int(last_id.split("-")[1])
-        return f"CF-{number + 1}"
-    except (ValueError, IndexError):
-        return "CF-1001"
-
-
-# ============================================================
-# CREATE TICKET
-# ============================================================
-
-@tickets_bp.route("/api/tickets", methods=["POST"])
-def create_ticket():
-
-    data = request.get_json()
-
-    if not data:
-        return jsonify({
-            "status": "error",
-            "message": "No complaint data received."
-        }), 400
-
-    user_id = data.get("user_id")
-    category_id = data.get("category_id")
-    location = data.get("location", "").strip()
-    priority = data.get("priority", "").strip()
-    description = data.get("description", "").strip()
-
-    if (
-        not user_id
-        or not category_id
-        or not location
-        or not priority
-        or not description
-    ):
-        return jsonify({
-            "status": "error",
-            "message": "All required complaint fields must be filled."
-        }), 400
-
-    if priority not in ["Low", "Medium", "High"]:
-        return jsonify({
-            "status": "error",
-            "message": "Invalid priority."
-        }), 400
-
-    connection = None
-    cursor = None
-
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor()
-
-        # Check user
-        cursor.execute(
-            "SELECT id FROM users WHERE id = %s",
-            (user_id,)
+    result = []
+    for t in tickets:
+        result.append(
+            {
+                "id": t.id,
+                "ticket_id": t.ticket_id,
+                "category_id": t.category_id,
+                "category": t.category.name if t.category else "General",
+                "location": t.location,
+                "priority": t.priority,
+                "description": t.description,
+                "status": t.status,
+                "image_path": t.image_path,
+                "resolution_details": t.resolution_details,
+                "created_at": t.created_at.isoformat() if t.created_at else None,
+                "updated_at": t.updated_at.isoformat() if t.updated_at else None,
+                "technician_name": t.technician.full_name if t.technician else None,
+            }
         )
 
-        user = cursor.fetchone()
+    return {
+        "status": "success",
+        "count": len(result),
+        "tickets": result,
+    }
 
-        if not user:
-            return jsonify({
-                "status": "error",
-                "message": "User not found."
-            }), 404
 
-        # Check category
-        cursor.execute(
-            "SELECT id FROM categories WHERE id = %s",
-            (category_id,)
-        )
+def check_ticket_access(ticket: Ticket, current_user: User):
+    """Enforce college-scoped multi-tenancy and role permissions for tickets."""
+    creator_college = ticket.creator.college_name if ticket.creator else None
+    user_college = current_user.college_name
 
-        category = cursor.fetchone()
-
-        if not category:
-            return jsonify({
-                "status": "error",
-                "message": "Category not found."
-            }), 404
-
-        # Generate ticket ID
-        ticket_id = generate_ticket_id(cursor)
-
-        cursor.execute(
-            """
-            INSERT INTO tickets
-            (
-                ticket_id,
-                user_id,
-                category_id,
-                location,
-                priority,
-                description,
-                status
+    if current_user.role == "admin":
+        if user_college and creator_college and user_college != creator_college:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access Denied: Ticket belongs to another college.",
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """,
-            (
-                ticket_id,
-                user_id,
-                category_id,
-                location,
-                priority,
-                description,
-                "Submitted"
+    elif current_user.role == "technician":
+        if ticket.technician_id != current_user.id:
+            if not user_college or not creator_college or user_college != creator_college:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access Denied: You do not have permission to view this ticket.",
+                )
+    else:
+        if ticket.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to view this ticket.",
             )
+
+
+# -------------------------------------------------------------
+# GET TICKET DETAILS
+# -------------------------------------------------------------
+
+@router.get("/{ticket_id}")
+def get_ticket_details(
+    ticket_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    # Lookup by ticket_id string (CF-1001) or integer primary key
+    if ticket_id.isdigit():
+        ticket = db.query(Ticket).filter(Ticket.id == int(ticket_id)).first()
+    else:
+        ticket = db.query(Ticket).filter(Ticket.ticket_id == ticket_id).first()
+
+    if not ticket:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Ticket '{ticket_id}' not found.",
         )
 
-        connection.commit()
-
-        return jsonify({
-            "status": "success",
-            "message": "Complaint submitted successfully!",
-            "ticket_id": ticket_id
-        }), 201
-
-    except psycopg2.Error as error:
-
-        if connection:
-            connection.rollback()
-
-        return jsonify({
-            "status": "error",
-            "message": "Database error occurred.",
-            "error": str(error)
-        }), 500
-
-    finally:
-
-        if cursor:
-            cursor.close()
-
-        if connection is not None:
-            connection.close()
-
-
-# ============================================================
-# GET LOGGED-IN USER'S TICKETS
-# ============================================================
-
-@tickets_bp.route("/api/tickets/my", methods=["GET"])
-def get_my_tickets():
-
-    # Get Authorization header
-    auth_header = request.headers.get("Authorization")
-
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({
-            "status": "error",
-            "message": "Authorization token is required."
-        }), 401
-
-    # Extract token
-    token = auth_header.split(" ")[1]
-
-    try:
-
-        decoded = jwt.decode(
-            token,
-            JWT_SECRET_KEY,
-            algorithms=["HS256"]
-        )
-
-        user_id = decoded.get("user_id")
-
-        if not user_id:
-            return jsonify({
-                "status": "error",
-                "message": "Invalid token."
-            }), 401
-
-    except jwt.ExpiredSignatureError:
-
-        return jsonify({
-            "status": "error",
-            "message": "Token has expired. Please login again."
-        }), 401
-
-    except jwt.InvalidTokenError:
-
-        return jsonify({
-            "status": "error",
-            "message": "Invalid token."
-        }), 401
-
-    connection = None
-    cursor = None
-
-    try:
-
-        connection = get_db_connection()
-
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
-
-        cursor.execute(
-            """
-            SELECT
-                t.id,
-                t.ticket_id,
-                t.location,
-                t.priority,
-                t.description,
-                t.status,
-                t.created_at,
-                t.updated_at,
-                c.name AS category,
-                technician.full_name AS technician_name
-
-            FROM tickets t
-
-            INNER JOIN categories c
-                ON t.category_id = c.id
-
-            LEFT JOIN users technician
-                ON t.technician_id = technician.id
-
-            WHERE t.user_id = %s
-
-            ORDER BY t.created_at DESC
-            """,
-            (user_id,)
-        )
-
-        tickets = cursor.fetchall()
-
-        return jsonify({
-            "status": "success",
-            "tickets": tickets
-        }), 200
-
-    except psycopg2.Error as error:
-
-        return jsonify({
-            "status": "error",
-            "message": "Database error occurred.",
-            "error": str(error)
-        }), 500
-
-    finally:
-
-        if cursor:
-            cursor.close()
-
-        if connection is not None:
-            connection.close()
-
-# ============================================================
-# GET SINGLE TICKET DETAILS
-# ============================================================
-
-@tickets_bp.route("/api/tickets/<ticket_id>", methods=["GET"])
-def get_ticket_details(ticket_id):
-
-    auth_header = request.headers.get("Authorization")
-
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({
-            "status": "error",
-            "message": "Authorization token is required."
-        }), 401
-
-    token = auth_header.split(" ")[1]
-
-    try:
-        decoded = jwt.decode(
-            token,
-            JWT_SECRET_KEY,
-            algorithms=["HS256"]
-        )
-
-        user_id = decoded.get("user_id")
-
-        if not user_id:
-            return jsonify({
-                "status": "error",
-                "message": "Invalid token."
-            }), 401
-
-    except jwt.ExpiredSignatureError:
-        return jsonify({
-            "status": "error",
-            "message": "Token has expired. Please login again."
-        }), 401
-
-    except jwt.InvalidTokenError:
-        return jsonify({
-            "status": "error",
-            "message": "Invalid token."
-        }), 401
-
-    connection = None
-    cursor = None
-
-    try:
-        connection = get_db_connection()
-
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
-
-        cursor.execute(
-            """
-            SELECT
-                t.id,
-                t.ticket_id,
-                t.location,
-                t.priority,
-                t.description,
-                t.status,
-                t.image_path,
-                t.resolution_details,
-                t.created_at,
-                t.updated_at,
-
-                c.name AS category,
-
-                technician.full_name AS technician_name,
-                technician.email AS technician_email
-
-            FROM tickets t
-
-            INNER JOIN categories c
-                ON t.category_id = c.id
-
-            LEFT JOIN users technician
-                ON t.technician_id = technician.id
-
-            WHERE t.ticket_id = %s
-              AND t.user_id = %s
-            """,
-            (ticket_id, user_id)
-        )
-
-        ticket = cursor.fetchone()
-
-        if not ticket:
-            return jsonify({
-                "status": "error",
-                "message": "Ticket not found."
-            }), 404
-
-        return jsonify({
-            "status": "success",
-            "ticket": ticket
-        }), 200
-
-    except psycopg2.Error as error:
-
-        return jsonify({
-            "status": "error",
-            "message": "Database error occurred.",
-            "error": str(error)
-        }), 500
-
-    finally:
-
-        if cursor:
-            cursor.close()
-
-        if connection is not None:
-            connection.close()
-
-# ============================================================
-# ADMIN - GET ALL TICKETS
-# ============================================================
-
-@tickets_bp.route("/api/admin/tickets", methods=["GET"])
-def get_all_tickets_admin():
-
-    auth_header = request.headers.get("Authorization")
-
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({
-            "status": "error",
-            "message": "Authorization token is required."
-        }), 401
-
-    token = auth_header.split(" ")[1]
-
-    try:
-        decoded = jwt.decode(
-            token,
-            JWT_SECRET_KEY,
-            algorithms=["HS256"]
-        )
-
-        user_id = decoded.get("user_id")
-        role = decoded.get("role")
-
-        if not user_id or role != "admin":
-            return jsonify({
-                "status": "error",
-                "message": "Admin access required."
-            }), 403
-
-    except jwt.ExpiredSignatureError:
-        return jsonify({
-            "status": "error",
-            "message": "Token has expired. Please login again."
-        }), 401
-
-    except jwt.InvalidTokenError:
-        return jsonify({
-            "status": "error",
-            "message": "Invalid token."
-        }), 401
-
-    connection = None
-    cursor = None
-
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
-
-        cursor.execute("""
-            SELECT
-                t.id,
-                t.ticket_id,
-                t.location,
-                t.priority,
-                t.description,
-                t.status,
-                t.image_path,
-                t.resolution_details,
-                t.created_at,
-                t.updated_at,
-
-                u.full_name AS user_name,
-                u.email AS user_email,
-
-                c.name AS category,
-
-                technician.id AS technician_id,
-                technician.full_name AS technician_name
-
-            FROM tickets t
-
-            INNER JOIN users u
-                ON t.user_id = u.id
-
-            INNER JOIN categories c
-                ON t.category_id = c.id
-
-            LEFT JOIN users technician
-                ON t.technician_id = technician.id
-
-            ORDER BY t.created_at DESC
-        """)
-
-        tickets = cursor.fetchall()
-
-        return jsonify({
-            "status": "success",
-            "tickets": tickets
-        }), 200
-
-    except psycopg2.Error as error:
-
-        return jsonify({
-            "status": "error",
-            "message": "Database error occurred.",
-            "error": str(error)
-        }), 500
-
-    finally:
-
-        if cursor:
-            cursor.close()
-
-        if connection is not None:
-            connection.close()
-
-
-# ============================================================
-# ADMIN - GET ALL TECHNICIANS
-# ============================================================
-
-@tickets_bp.route("/api/admin/technicians", methods=["GET"])
-def get_technicians_admin():
-
-    auth_header = request.headers.get("Authorization")
-
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({
-            "status": "error",
-            "message": "Authorization token is required."
-        }), 401
-
-    token = auth_header.split(" ")[1]
-
-    try:
-        decoded = jwt.decode(
-            token,
-            JWT_SECRET_KEY,
-            algorithms=["HS256"]
-        )
-
-        user_id = decoded.get("user_id")
-        role = decoded.get("role")
-
-        if not user_id or role != "admin":
-            return jsonify({
-                "status": "error",
-                "message": "Admin access required."
-            }), 403
-
-    except jwt.ExpiredSignatureError:
-        return jsonify({
-            "status": "error",
-            "message": "Token has expired. Please login again."
-        }), 401
-
-    except jwt.InvalidTokenError:
-        return jsonify({
-            "status": "error",
-            "message": "Invalid token."
-        }), 401
-
-    connection = None
-    cursor = None
-
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
-
-        cursor.execute("""
-            SELECT
-                id,
-                full_name,
-                email,
-                specialization,
-                department
-            FROM users
-            WHERE role = 'technician'
-            ORDER BY full_name
-        """)
-
-        technicians = cursor.fetchall()
-
-        return jsonify({
-            "status": "success",
-            "technicians": technicians
-        }), 200
-
-    except psycopg2.Error as error:
-
-        return jsonify({
-            "status": "error",
-            "message": "Database error occurred.",
-            "error": str(error)
-        }), 500
-
-    finally:
-
-        if cursor:
-            cursor.close()
-
-        if connection is not None:
-            connection.close()
-
-
-# ============================================================
-# ADMIN - ASSIGN TECHNICIAN TO TICKET
-# ============================================================
-
-@tickets_bp.route(
-    "/api/admin/tickets/<ticket_id>/assign",
-    methods=["PUT"]
-)
-def assign_technician(ticket_id):
-
-    auth_header = request.headers.get("Authorization")
-
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({
-            "status": "error",
-            "message": "Authorization token is required."
-        }), 401
-
-    token = auth_header.split(" ")[1]
-
-    try:
-        decoded = jwt.decode(
-            token,
-            JWT_SECRET_KEY,
-            algorithms=["HS256"]
-        )
-
-        user_id = decoded.get("user_id")
-        role = decoded.get("role")
-
-        if not user_id or role != "admin":
-            return jsonify({
-                "status": "error",
-                "message": "Admin access required."
-            }), 403
-
-    except jwt.ExpiredSignatureError:
-        return jsonify({
-            "status": "error",
-            "message": "Token has expired. Please login again."
-        }), 401
-
-    except jwt.InvalidTokenError:
-        return jsonify({
-            "status": "error",
-            "message": "Invalid token."
-        }), 401
-
-    data = request.get_json() or {}
-
-    technician_id = data.get("technician_id")
-
-    if not technician_id:
-        return jsonify({
-            "status": "error",
-            "message": "Technician ID is required."
-        }), 400
-
-    connection = None
-    cursor = None
-
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
-
-        # ========================================================
-        # CHECK TECHNICIAN
-        # ========================================================
-
-        cursor.execute("""
-            SELECT id, full_name
-            FROM users
-            WHERE id = %s
-              AND role = 'technician'
-        """, (technician_id,))
-
-        technician = cursor.fetchone()
-
-        if not technician:
-            return jsonify({
-                "status": "error",
-                "message": "Technician not found."
-            }), 404
-
-        # ========================================================
-        # CHECK TICKET
-        # ========================================================
-
-        cursor.execute("""
-            SELECT id, ticket_id, user_id
-            FROM tickets
-            WHERE ticket_id = %s
-            LIMIT 1
-        """, (ticket_id,))
-
-        ticket = cursor.fetchone()
-
-        if not ticket:
-            return jsonify({
-                "status": "error",
-                "message": "Ticket not found."
-            }), 404
-
-        # ========================================================
-        # ASSIGN TECHNICIAN
-        # ========================================================
-
-        cursor.execute("""
-            UPDATE tickets
-            SET technician_id = %s,
-                status = 'Assigned'
-            WHERE ticket_id = %s
-        """, (technician_id, ticket_id))
-
-        # ========================================================
-        # NOTIFICATION FOR TECHNICIAN
-        # ========================================================
-
-        cursor.execute("""
-            INSERT INTO notifications
-            (
-                user_id,
-                ticket_id,
-                title,
-                message
-            )
-            VALUES (%s, %s, %s, %s)
-        """, (
-            technician_id,
-            ticket["id"],
-            "New Ticket Assigned",
-            f"Ticket #{ticket_id} has been assigned to you."
-        ))
-
-        # ========================================================
-        # NOTIFICATION FOR STUDENT / FACULTY
-        # ========================================================
-
-        cursor.execute("""
-            INSERT INTO notifications
-            (
-                user_id,
-                ticket_id,
-                title,
-                message
-            )
-            VALUES (%s, %s, %s, %s)
-        """, (
-            ticket["user_id"],
-            ticket["id"],
-            "Technician Assigned",
-            f"Technician {technician['full_name']} has been assigned to your ticket #{ticket_id}."
-        ))
-
-        # ========================================================
-        # SAVE EVERYTHING
-        # ========================================================
-
-        connection.commit()
-
-        return jsonify({
-            "status": "success",
-            "message": "Technician assigned successfully.",
-            "ticket_id": ticket_id,
-            "technician_id": technician_id,
-            "technician_name": technician["full_name"]
-        }), 200
-
-    except psycopg2.Error as error:
-
-        if connection:
-            connection.rollback()
-
-        print("Assignment Error:", error)
-
-        return jsonify({
-            "status": "error",
-            "message": "Database error occurred.",
-            "error": str(error)
-        }), 500
-
-    finally:
-
-        if cursor:
-            cursor.close()
-
-        if connection is not None:
-            connection.close()
-# ============================================================
-# TECHNICIAN - GET ASSIGNED TICKETS
-# ============================================================
-
-@tickets_bp.route("/api/technician/tickets", methods=["GET"])
-def get_technician_tickets():
-
-    auth_header = request.headers.get("Authorization")
-
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({
-            "status": "error",
-            "message": "Authorization token is required."
-        }), 401
-
-    token = auth_header.split(" ")[1]
-
-    try:
-        decoded = jwt.decode(
-            token,
-            JWT_SECRET_KEY,
-            algorithms=["HS256"]
-        )
-
-        user_id = decoded.get("user_id")
-        role = decoded.get("role")
-
-        if not user_id or role != "technician":
-            return jsonify({
-                "status": "error",
-                "message": "Technician access required."
-            }), 403
-
-    except jwt.ExpiredSignatureError:
-        return jsonify({
-            "status": "error",
-            "message": "Token has expired. Please login again."
-        }), 401
-
-    except jwt.InvalidTokenError:
-        return jsonify({
-            "status": "error",
-            "message": "Invalid token."
-        }), 401
-
-    connection = None
-    cursor = None
-
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
-
-        cursor.execute("""
-            SELECT
-                t.id,
-                t.ticket_id,
-                t.location,
-                t.priority,
-                t.description,
-                t.status,
-                t.image_path,
-                t.resolution_details,
-                t.created_at,
-                t.updated_at,
-
-                c.name AS category,
-
-                u.full_name AS user_name,
-                u.email AS user_email
-
-            FROM tickets t
-
-            INNER JOIN categories c
-                ON t.category_id = c.id
-
-            INNER JOIN users u
-                ON t.user_id = u.id
-
-            WHERE t.technician_id = %s
-
-            ORDER BY t.created_at DESC
-        """, (user_id,))
-
-        tickets = cursor.fetchall()
-
-        return jsonify({
-            "status": "success",
-            "tickets": tickets
-        }), 200
-
-    except psycopg2.Error as error:
-
-        return jsonify({
-            "status": "error",
-            "message": "Database error occurred.",
-            "error": str(error)
-        }), 500
-
-    finally:
-
-        if cursor:
-            cursor.close()
-
-        if connection is not None:
-            connection.close()
-# ============================================================
-# TECHNICIAN - GET TICKET DETAILS
-# ============================================================
-
-@tickets_bp.route("/api/technician/tickets/<ticket_id>", methods=["GET"])
-def get_technician_ticket_details(ticket_id):
-
-    auth_header = request.headers.get("Authorization")
-
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({
-            "status": "error",
-            "message": "Authorization token is required."
-        }), 401
-
-    token = auth_header.split(" ")[1]
-
-    try:
-        decoded = jwt.decode(
-            token,
-            JWT_SECRET_KEY,
-            algorithms=["HS256"]
-        )
-
-        user_id = decoded.get("user_id")
-        role = decoded.get("role")
-
-        if not user_id or role != "technician":
-            return jsonify({
-                "status": "error",
-                "message": "Technician access required."
-            }), 403
-
-    except jwt.ExpiredSignatureError:
-        return jsonify({
-            "status": "error",
-            "message": "Token has expired. Please login again."
-        }), 401
-
-    except jwt.InvalidTokenError:
-        return jsonify({
-            "status": "error",
-            "message": "Invalid token."
-        }), 401
-
-    connection = None
-    cursor = None
-
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
-
-        cursor.execute("""
-            SELECT
-                t.id,
-                t.ticket_id,
-                t.location,
-                t.priority,
-                t.description,
-                t.image_path,
-                t.status,
-                t.resolution_details,
-                t.created_at,
-                t.updated_at,
-
-                c.name AS category,
-
-                u.full_name AS user_name,
-                u.email AS user_email,
-
-                tech.full_name AS technician_name
-
-            FROM tickets t
-
-            INNER JOIN categories c
-                ON t.category_id = c.id
-
-            INNER JOIN users u
-                ON t.user_id = u.id
-
-            LEFT JOIN users tech
-                ON t.technician_id = tech.id
-
-            WHERE t.ticket_id = %s
-              AND t.technician_id = %s
-
-            LIMIT 1
-        """, (ticket_id, user_id))
-
-        ticket = cursor.fetchone()
-
-        if not ticket:
-            return jsonify({
-                "status": "error",
-                "message": "Ticket not found or not assigned to you."
-            }), 404
-
-        return jsonify({
-            "status": "success",
-            "ticket": ticket
-        }), 200
-
-    except psycopg2.Error as error:
-
-        return jsonify({
-            "status": "error",
-            "message": "Database error occurred.",
-            "error": str(error)
-        }), 500
-
-    finally:
-
-        if cursor:
-            cursor.close()
-
-        if connection is not None:
-            connection.close()
-# ============================================================
-# UPDATE TECHNICIAN TICKET
-# ============================================================
-
-@tickets_bp.route("/api/technician/tickets/<ticket_id>", methods=["PUT"])
-def update_technician_ticket(ticket_id):
-
-    auth_header = request.headers.get("Authorization")
-
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({
-            "status": "error",
-            "message": "Authorization token is required."
-        }), 401
-
-    token = auth_header.split(" ")[1]
-
-    try:
-        decoded = jwt.decode(
-            token,
-            JWT_SECRET_KEY,
-            algorithms=["HS256"]
-        )
-
-        user_id = decoded.get("user_id")
-        role = decoded.get("role")
-
-        if not user_id or role != "technician":
-            return jsonify({
-                "status": "error",
-                "message": "Technician access required."
-            }), 403
-
-    except jwt.ExpiredSignatureError:
-        return jsonify({
-            "status": "error",
-            "message": "Token has expired. Please login again."
-        }), 401
-
-    except jwt.InvalidTokenError:
-        return jsonify({
-            "status": "error",
-            "message": "Invalid token."
-        }), 401
-
-    data = request.get_json() or {}
-
-    new_status = data.get("status")
-    resolution_details = data.get("resolution_details", "")
-
-    allowed_statuses = [
-        "Assigned",
-        "In Progress",
-        "Resolved"
+    # Permission check: Creator, Assigned Tech, or College Admin
+    check_ticket_access(ticket, current_user)
+
+    history_logs = [
+        {
+            "id": h.id,
+            "old_status": h.old_status,
+            "new_status": h.new_status,
+            "comments": h.comments,
+            "changed_by": h.changed_by.full_name if h.changed_by else "System",
+            "created_at": h.created_at.isoformat() if h.created_at else None,
+        }
+        for h in ticket.history
     ]
 
-    if new_status not in allowed_statuses:
-        return jsonify({
-            "status": "error",
-            "message": "Invalid ticket status."
-        }), 400
-
-    if new_status == "Resolved" and not resolution_details.strip():
-        return jsonify({
-            "status": "error",
-            "message": "Resolution details are required."
-        }), 400
-
-    connection = None
-    cursor = None
-
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
-
-        # Check ticket and get current status + ticket owner
-        cursor.execute(
-            """
-            SELECT id, user_id, status
-            FROM tickets
-            WHERE ticket_id = %s
-              AND technician_id = %s
-            LIMIT 1
-            """,
-            (ticket_id, user_id)
-        )
-
-        ticket = cursor.fetchone()
-
-        if not ticket:
-            return jsonify({
-                "status": "error",
-                "message": "Ticket not found or not assigned to you."
-            }), 404
-
-        old_status = ticket["status"]
-        ticket_owner_id = ticket["user_id"]
-
-        # Update ticket
-        cursor.execute(
-            """
-            UPDATE tickets
-            SET
-                status = %s,
-                resolution_details = %s
-            WHERE ticket_id = %s
-              AND technician_id = %s
-            """,
-            (
-                new_status,
-                resolution_details.strip(),
-                ticket_id,
-                user_id
-            )
-        )
-
-        # Create notification only when status changes
-        if old_status != new_status:
-
-            if new_status == "In Progress":
-                notification_title = "Ticket Status Updated"
-                notification_message = (
-                    f"Ticket #{ticket_id} is now In Progress."
-                )
-
-            elif new_status == "Resolved":
-                notification_title = "Ticket Resolved"
-                notification_message = (
-                    f"Ticket #{ticket_id} has been resolved."
-                )
-
-            else:
-                notification_title = "Ticket Status Updated"
-                notification_message = (
-                    f"Ticket #{ticket_id} status has been updated to {new_status}."
-                )
-
-            cursor.execute(
-                """
-                INSERT INTO notifications
-                (
-                    user_id,
-                    ticket_id,
-                    title,
-                    message
-                )
-                VALUES (%s, %s, %s, %s)
-                """,
-                (
-                    ticket_owner_id,
-                    ticket["id"],
-                    notification_title,
-                    notification_message
-                )
-            )
-
-        connection.commit()
-
-        return jsonify({
-            "status": "success",
-            "message": "Ticket updated successfully."
-        }), 200
-
-    except psycopg2.Error as error:
-
-        if connection:
-            connection.rollback()
-
-        return jsonify({
-            "status": "error",
-            "message": "Database error occurred.",
-            "error": str(error)
-        }), 500
-
-    finally:
-
-        if cursor:
-            cursor.close()
-
-        if connection is not None:
-            connection.close()
-# ============================================================
-# ADMIN - GET ALL USERS
-# ============================================================
-
-@tickets_bp.route("/api/admin/users", methods=["GET"])
-def get_all_users():
-
-    auth_header = request.headers.get("Authorization")
-
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({
-            "status": "error",
-            "message": "Authorization token is required."
-        }), 401
-
-    token = auth_header.split(" ")[1]
-
-    try:
-        decoded = jwt.decode(
-            token,
-            JWT_SECRET_KEY,
-            algorithms=["HS256"]
-        )
-
-        user_id = decoded.get("user_id")
-        role = decoded.get("role")
-
-        if not user_id or role != "admin":
-            return jsonify({
-                "status": "error",
-                "message": "Admin access required."
-            }), 403
-
-    except jwt.ExpiredSignatureError:
-        return jsonify({
-            "status": "error",
-            "message": "Token has expired. Please login again."
-        }), 401
-
-    except jwt.InvalidTokenError:
-        return jsonify({
-            "status": "error",
-            "message": "Invalid token."
-        }), 401
-
-    connection = None
-    cursor = None
-
-    try:
-
-        connection = get_db_connection()
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
-
-        cursor.execute("""
-            SELECT
-                id,
-                full_name,
-                email,
-                role,
-                phone,
-                department,
-                specialization,
-                created_at
-            FROM users
-            ORDER BY created_at DESC
-        """)
-
-        users = cursor.fetchall()
-
-        return jsonify({
-            "status": "success",
-            "users": users
-        }), 200
-
-    except psycopg2.Error as error:
-
-        print("Get Users Error:", error)
-
-        return jsonify({
-            "status": "error",
-            "message": "Database error occurred.",
-            "error": str(error)
-        }), 500
-
-    finally:
-
-        if cursor:
-            cursor.close()
-
-        if connection is not None:
-            connection.close()
-# ============================================================
-# ADMIN - GET ALL CATEGORIES
-# ============================================================
-
-@tickets_bp.route("/api/admin/categories", methods=["GET"])
-def get_all_categories():
-
-    auth_header = request.headers.get("Authorization")
-
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({
-            "status": "error",
-            "message": "Authorization token is required."
-        }), 401
-
-    token = auth_header.split(" ")[1]
-
-    try:
-        decoded = jwt.decode(
-            token,
-            JWT_SECRET_KEY,
-            algorithms=["HS256"]
-        )
-
-        user_id = decoded.get("user_id")
-        role = decoded.get("role")
-
-        if not user_id or role != "admin":
-            return jsonify({
-                "status": "error",
-                "message": "Admin access required."
-            }), 403
-
-    except jwt.ExpiredSignatureError:
-        return jsonify({
-            "status": "error",
-            "message": "Token has expired. Please login again."
-        }), 401
-
-    except jwt.InvalidTokenError:
-        return jsonify({
-            "status": "error",
-            "message": "Invalid token."
-        }), 401
-
-    connection = None
-    cursor = None
-
-    try:
-
-        connection = get_db_connection()
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
-
-        cursor.execute("""
-            SELECT
-                c.id,
-                c.name,
-                c.description,
-                c.created_at,
-                COUNT(t.id) AS tickets
-            FROM categories c
-            LEFT JOIN tickets t
-                ON c.id = t.category_id
-            GROUP BY
-                c.id,
-                c.name,
-                c.description,
-                c.created_at
-            ORDER BY c.id
-        """)
-
-        categories = cursor.fetchall()
-
-        return jsonify({
-            "status": "success",
-            "categories": categories
-        }), 200
-
-    except psycopg2.Error as error:
-
-        print("Get Categories Error:", error)
-
-        return jsonify({
-            "status": "error",
-            "message": "Database error occurred.",
-            "error": str(error)
-        }), 500
-
-    finally:
-
-        if cursor:
-            cursor.close()
-
-        if connection is not None:
-            connection.close()
-# ============================================================
-# ADMIN - ADD CATEGORY
-# ============================================================
-
-@tickets_bp.route("/api/admin/categories", methods=["POST"])
-def add_category():
-
-    auth_header = request.headers.get("Authorization")
-
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({
-            "status": "error",
-            "message": "Authorization token is required."
-        }), 401
-
-    token = auth_header.split(" ")[1]
-
-    try:
-        decoded = jwt.decode(
-            token,
-            JWT_SECRET_KEY,
-            algorithms=["HS256"]
-        )
-
-        user_id = decoded.get("user_id")
-        role = decoded.get("role")
-
-        if not user_id or role != "admin":
-            return jsonify({
-                "status": "error",
-                "message": "Admin access required."
-            }), 403
-
-    except jwt.ExpiredSignatureError:
-        return jsonify({
-            "status": "error",
-            "message": "Token has expired. Please login again."
-        }), 401
-
-    except jwt.InvalidTokenError:
-        return jsonify({
-            "status": "error",
-            "message": "Invalid token."
-        }), 401
-
-    data = request.get_json()
-
-    if not data:
-        return jsonify({
-            "status": "error",
-            "message": "Request data is required."
-        }), 400
-
-    name = data.get("name", "").strip()
-    description = data.get("description", "").strip()
-
-    if not name:
-        return jsonify({
-            "status": "error",
-            "message": "Category name is required."
-        }), 400
-
-    connection = None
-    cursor = None
-
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
-
-        # Check duplicate category
-        cursor.execute(
-            "SELECT id FROM categories WHERE name = %s",
-            (name,)
-        )
-
-        existing = cursor.fetchone()
-
-        if existing:
-            return jsonify({
-                "status": "error",
-                "message": "Category already exists."
-            }), 409
-
-        cursor.execute(
-            """
-            INSERT INTO categories
-            (name, description)
-            VALUES (%s, %s)
-            RETURNING id
-            """,
-            (name, description)
-        )
-
-        category_id = cursor.fetchone()["id"]
-
-        connection.commit()
-
-        return jsonify({
-            "status": "success",
-            "message": "Category added successfully.",
-            "category": {
-                "id": category_id,
-                "name": name,
-                "description": description,
-                "tickets": 0
+    comments_list = [
+        {
+            "id": c.id,
+            "comment": c.comment,
+            "is_internal": c.is_internal,
+            "author_name": c.author.full_name if c.author else "User",
+            "author_role": c.author.role if c.author else "user",
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+        }
+        for c in ticket.comments
+        if not c.is_internal or current_user.role in ["admin", "technician"]
+    ]
+
+    feedback_data = None
+    if ticket.feedback:
+        feedback_data = {
+            "rating": ticket.feedback.rating,
+            "comments": ticket.feedback.comments,
+            "created_at": ticket.feedback.created_at.isoformat(),
+        }
+
+    return {
+        "status": "success",
+        "ticket": {
+            "id": ticket.id,
+            "ticket_id": ticket.ticket_id,
+            "user_id": ticket.user_id,
+            "user_name": ticket.creator.full_name if ticket.creator else "Unknown",
+            "user_email": ticket.creator.email if ticket.creator else "",
+            "user_role": ticket.creator.role if ticket.creator else "",
+            "user_phone": ticket.creator.phone if ticket.creator else "",
+            "category_id": ticket.category_id,
+            "category": ticket.category.name if ticket.category else "",
+            "technician_id": ticket.technician_id,
+            "technician_name": ticket.technician.full_name if ticket.technician else "Not Assigned",
+            "technician_phone": ticket.technician.phone if ticket.technician else None,
+            "location": ticket.location,
+            "priority": ticket.priority,
+            "description": ticket.description,
+            "status": ticket.status,
+            "image_path": ticket.image_path,
+            "resolution_details": ticket.resolution_details,
+            "created_at": ticket.created_at.isoformat() if ticket.created_at else None,
+            "updated_at": ticket.updated_at.isoformat() if ticket.updated_at else None,
+            "history": history_logs,
+            "comments": comments_list,
+            "feedback": feedback_data,
+        },
+    }
+
+
+# -------------------------------------------------------------
+# COMMENTS
+# -------------------------------------------------------------
+
+@router.get("/{ticket_id}/comments")
+def get_ticket_comments(
+    ticket_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    ticket = db.query(Ticket).filter(Ticket.ticket_id == ticket_id).first()
+    if not ticket:
+        ticket = db.query(Ticket).filter(Ticket.id == int(ticket_id) if ticket_id.isdigit() else -1).first()
+
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found.")
+
+    check_ticket_access(ticket, current_user)
+
+    comments = (
+        db.query(TicketComment)
+        .filter(TicketComment.ticket_id == ticket.id)
+        .order_by(TicketComment.created_at)
+        .all()
+    )
+
+    return {
+        "status": "success",
+        "comments": [
+            {
+                "id": c.id,
+                "comment": c.comment,
+                "author": c.author.full_name if c.author else "User",
+                "role": c.author.role if c.author else "user",
+                "created_at": c.created_at.isoformat(),
             }
-        }), 201
-
-    except psycopg2.Error as error:
-
-        if connection:
-            connection.rollback()
-
-        print("Add Category Error:", error)
-
-        return jsonify({
-            "status": "error",
-            "message": "Database error occurred.",
-            "error": str(error)
-        }), 500
-
-    finally:
-
-        if cursor:
-            cursor.close()
-
-        if connection is not None:
-            connection.close()
+            for c in comments
+        ],
+    }
 
 
-# ============================================================
-# ADMIN - UPDATE CATEGORY
-# ============================================================
+@router.post("/{ticket_id}/comments")
+def add_ticket_comment(
+    ticket_id: str,
+    payload: TicketCommentCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    ticket = db.query(Ticket).filter(Ticket.ticket_id == ticket_id).first()
+    if not ticket:
+        ticket = db.query(Ticket).filter(Ticket.id == int(ticket_id) if ticket_id.isdigit() else -1).first()
 
-@tickets_bp.route("/api/admin/categories/<int:category_id>", methods=["PUT"])
-def update_category(category_id):
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found.")
 
-    auth_header = request.headers.get("Authorization")
+    check_ticket_access(ticket, current_user)
 
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({
-            "status": "error",
-            "message": "Authorization token is required."
-        }), 401
+    comment = TicketComment(
+        ticket_id=ticket.id,
+        user_id=current_user.id,
+        comment=payload.comment.strip(),
+        is_internal=payload.is_internal,
+    )
+    db.add(comment)
+    db.commit()
 
-    token = auth_header.split(" ")[1]
+    return {"status": "success", "message": "Comment posted successfully."}
 
-    try:
-        decoded = jwt.decode(
-            token,
-            JWT_SECRET_KEY,
-            algorithms=["HS256"]
+
+# -------------------------------------------------------------
+# FEEDBACK / RATING
+# -------------------------------------------------------------
+
+@router.post("/{ticket_id}/feedback")
+def submit_ticket_feedback(
+    ticket_id: str,
+    payload: TicketFeedbackCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    ticket = db.query(Ticket).filter(Ticket.ticket_id == ticket_id).first()
+    if not ticket:
+        ticket = db.query(Ticket).filter(Ticket.id == int(ticket_id) if ticket_id.isdigit() else -1).first()
+
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found.")
+
+    if ticket.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only ticket creator can submit feedback.")
+
+    existing = db.query(TicketFeedback).filter(TicketFeedback.ticket_id == ticket.id).first()
+    if existing:
+        existing.rating = payload.rating
+        existing.comments = payload.comments
+    else:
+        fb = TicketFeedback(
+            ticket_id=ticket.id,
+            user_id=current_user.id,
+            rating=payload.rating,
+            comments=payload.comments,
         )
+        db.add(fb)
 
-        user_id = decoded.get("user_id")
-        role = decoded.get("role")
-
-        if not user_id or role != "admin":
-            return jsonify({
-                "status": "error",
-                "message": "Admin access required."
-            }), 403
-
-    except jwt.ExpiredSignatureError:
-        return jsonify({
-            "status": "error",
-            "message": "Token has expired. Please login again."
-        }), 401
-
-    except jwt.InvalidTokenError:
-        return jsonify({
-            "status": "error",
-            "message": "Invalid token."
-        }), 401
-
-    data = request.get_json()
-
-    if not data:
-        return jsonify({
-            "status": "error",
-            "message": "Request data is required."
-        }), 400
-
-    name = data.get("name", "").strip()
-    description = data.get("description", "").strip()
-
-    if not name:
-        return jsonify({
-            "status": "error",
-            "message": "Category name is required."
-        }), 400
-
-    connection = None
-    cursor = None
-
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
-
-        # Check category exists
-        cursor.execute(
-            "SELECT id FROM categories WHERE id = %s",
-            (category_id,)
-        )
-
-        category = cursor.fetchone()
-
-        if not category:
-            return jsonify({
-                "status": "error",
-                "message": "Category not found."
-            }), 404
-
-        # Check duplicate name
-        cursor.execute(
-            """
-            SELECT id
-            FROM categories
-            WHERE name = %s AND id != %s
-            """,
-            (name, category_id)
-        )
-
-        duplicate = cursor.fetchone()
-
-        if duplicate:
-            return jsonify({
-                "status": "error",
-                "message": "Another category with this name already exists."
-            }), 409
-
-        cursor.execute(
-            """
-            UPDATE categories
-            SET name = %s,
-                description = %s
-            WHERE id = %s
-            """,
-            (name, description, category_id)
-        )
-
-        connection.commit()
-
-        return jsonify({
-            "status": "success",
-            "message": "Category updated successfully."
-        }), 200
-
-    except psycopg2.Error as error:
-
-        if connection:
-            connection.rollback()
-
-        print("Update Category Error:", error)
-
-        return jsonify({
-            "status": "error",
-            "message": "Database error occurred.",
-            "error": str(error)
-        }), 500
-
-    finally:
-
-        if cursor:
-            cursor.close()
-
-        if connection is not None:
-            connection.close()
-
-
-# ============================================================
-# ADMIN - DELETE CATEGORY
-# ============================================================
-
-@tickets_bp.route("/api/admin/categories/<int:category_id>", methods=["DELETE"])
-def delete_category(category_id):
-
-    auth_header = request.headers.get("Authorization")
-
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({
-            "status": "error",
-            "message": "Authorization token is required."
-        }), 401
-
-    token = auth_header.split(" ")[1]
-
-    try:
-        decoded = jwt.decode(
-            token,
-            JWT_SECRET_KEY,
-            algorithms=["HS256"]
-        )
-
-        user_id = decoded.get("user_id")
-        role = decoded.get("role")
-
-        if not user_id or role != "admin":
-            return jsonify({
-                "status": "error",
-                "message": "Admin access required."
-            }), 403
-
-    except jwt.ExpiredSignatureError:
-        return jsonify({
-            "status": "error",
-            "message": "Token has expired. Please login again."
-        }), 401
-
-    except jwt.InvalidTokenError:
-        return jsonify({
-            "status": "error",
-            "message": "Invalid token."
-        }), 401
-
-    connection = None
-    cursor = None
-
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
-
-        # Check category exists
-        cursor.execute(
-            "SELECT id, name FROM categories WHERE id = %s",
-            (category_id,)
-        )
-
-        category = cursor.fetchone()
-
-        if not category:
-            return jsonify({
-                "status": "error",
-                "message": "Category not found."
-            }), 404
-
-        # Check whether tickets use this category
-        cursor.execute(
-            """
-            SELECT COUNT(*) AS ticket_count
-            FROM tickets
-            WHERE category_id = %s
-            """,
-            (category_id,)
-        )
-
-        result = cursor.fetchone()
-
-        if result["ticket_count"] > 0:
-            return jsonify({
-                "status": "error",
-                "message": (
-                    f"Cannot delete '{category['name']}' because "
-                    f"{result['ticket_count']} ticket(s) are using this category."
-                )
-            }), 409
-
-        cursor.execute(
-            "DELETE FROM categories WHERE id = %s",
-            (category_id,)
-        )
-
-        connection.commit()
-
-        return jsonify({
-            "status": "success",
-            "message": "Category deleted successfully."
-        }), 200
-
-    except psycopg2.Error as error:
-
-        if connection:
-            connection.rollback()
-
-        print("Delete Category Error:", error)
-
-        return jsonify({
-            "status": "error",
-            "message": "Database error occurred.",
-            "error": str(error)
-        }), 500
-
-    finally:
-
-        if cursor:
-            cursor.close()
-
-        if connection is not None:
-            connection.close()
-# ============================================================
-# NOTIFICATIONS
-# ============================================================
-
-@tickets_bp.route("/api/notifications", methods=["GET"])
-def get_notifications():
-
-    auth_header = request.headers.get("Authorization")
-
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({
-            "status": "error",
-            "message": "Authorization token is required."
-        }), 401
-
-    token = auth_header.split(" ")[1]
-
-    try:
-        decoded = jwt.decode(
-            token,
-            JWT_SECRET_KEY,
-            algorithms=["HS256"]
-        )
-
-        user_id = decoded.get("user_id")
-
-        if not user_id:
-            return jsonify({
-                "status": "error",
-                "message": "Invalid token."
-            }), 401
-
-    except jwt.ExpiredSignatureError:
-        return jsonify({
-            "status": "error",
-            "message": "Token has expired. Please login again."
-        }), 401
-
-    except jwt.InvalidTokenError:
-        return jsonify({
-            "status": "error",
-            "message": "Invalid token."
-        }), 401
-
-    connection = None
-    cursor = None
-
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
-
-        cursor.execute("""
-            SELECT
-                n.id,
-                n.ticket_id,
-                n.title,
-                n.message,
-                n.is_read,
-                n.created_at,
-                t.ticket_id AS ticket_number
-            FROM notifications n
-            LEFT JOIN tickets t
-                ON n.ticket_id = t.id
-            WHERE n.user_id = %s
-            ORDER BY n.created_at DESC
-        """, (user_id,))
-
-        notifications = cursor.fetchall()
-
-        return jsonify({
-            "status": "success",
-            "notifications": notifications
-        }), 200
-
-    except psycopg2.Error as error:
-
-        print("Notification Database Error:", error)
-
-        return jsonify({
-            "status": "error",
-            "message": "Database error occurred.",
-            "error": str(error)
-        }), 500
-
-    finally:
-
-        if cursor:
-            cursor.close()
-
-        if connection is not None:
-            connection.close()
-
-
-# ============================================================
-# MARK NOTIFICATION AS READ
-# ============================================================
-
-@tickets_bp.route(
-    "/api/notifications/<int:notification_id>/read",
-    methods=["PUT"]
-)
-def mark_notification_read(notification_id):
-
-    auth_header = request.headers.get("Authorization")
-
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({
-            "status": "error",
-            "message": "Authorization token is required."
-        }), 401
-
-    token = auth_header.split(" ")[1]
-
-    try:
-        decoded = jwt.decode(
-            token,
-            JWT_SECRET_KEY,
-            algorithms=["HS256"]
-        )
-
-        user_id = decoded.get("user_id")
-
-        if not user_id:
-            return jsonify({
-                "status": "error",
-                "message": "Invalid token."
-            }), 401
-
-    except jwt.ExpiredSignatureError:
-        return jsonify({
-            "status": "error",
-            "message": "Token has expired. Please login again."
-        }), 401
-
-    except jwt.InvalidTokenError:
-        return jsonify({
-            "status": "error",
-            "message": "Invalid token."
-        }), 401
-
-    connection = None
-    cursor = None
-
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor()
-
-        cursor.execute("""
-            UPDATE notifications
-            SET is_read = TRUE
-            WHERE id = %s
-              AND user_id = %s
-        """, (notification_id, user_id))
-
-        connection.commit()
-
-        if cursor.rowcount == 0:
-            return jsonify({
-                "status": "error",
-                "message": "Notification not found."
-            }), 404
-
-        return jsonify({
-            "status": "success",
-            "message": "Notification marked as read."
-        }), 200
-
-    except psycopg2.Error as error:
-
-        if connection:
-            connection.rollback()
-
-        print("Mark Notification Database Error:", error)
-
-        return jsonify({
-            "status": "error",
-            "message": "Database error occurred.",
-            "error": str(error)
-        }), 500
-
-    finally:
-
-        if cursor:
-            cursor.close()
-
-        if connection is not None:
-            connection.close()
-            # ============================================================
-# ADMIN - DASHBOARD SUMMARY
-# ============================================================
-
-@tickets_bp.route("/api/admin/dashboard", methods=["GET"])
-def get_admin_dashboard():
-
-    # --------------------------------------------------------
-    # CHECK ADMIN AUTHENTICATION
-    # --------------------------------------------------------
-
-    auth_header = request.headers.get("Authorization")
-
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return jsonify({
-            "status": "error",
-            "message": "Authorization token is required."
-        }), 401
-
-    token = auth_header.split(" ")[1]
-
-    try:
-
-        decoded = jwt.decode(
-            token,
-            JWT_SECRET_KEY,
-            algorithms=["HS256"]
-        )
-
-        user_id = decoded.get("user_id")
-        role = decoded.get("role")
-
-        if not user_id or role != "admin":
-            return jsonify({
-                "status": "error",
-                "message": "Admin access required."
-            }), 403
-
-    except jwt.ExpiredSignatureError:
-
-        return jsonify({
-            "status": "error",
-            "message": "Token has expired. Please login again."
-        }), 401
-
-    except jwt.InvalidTokenError:
-
-        return jsonify({
-            "status": "error",
-            "message": "Invalid token."
-        }), 401
-
-
-    connection = None
-    cursor = None
-
-    try:
-
-        connection = get_db_connection()
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
-
-
-        # ----------------------------------------------------
-        # TOTAL TICKETS
-        # ----------------------------------------------------
-
-        cursor.execute("""
-            SELECT COUNT(*) AS total
-            FROM tickets
-        """)
-
-        total_tickets = cursor.fetchone()["total"]
-
-
-        # ----------------------------------------------------
-        # PENDING TICKETS
-        # ----------------------------------------------------
-
-        cursor.execute("""
-            SELECT COUNT(*) AS total
-            FROM tickets
-            WHERE status IN ('Submitted', 'Pending')
-        """)
-
-        pending_tickets = cursor.fetchone()["total"]
-
-
-        # ----------------------------------------------------
-        # IN PROGRESS TICKETS
-        # ----------------------------------------------------
-
-        cursor.execute("""
-            SELECT COUNT(*) AS total
-            FROM tickets
-            WHERE status = 'In Progress'
-        """)
-
-        in_progress_tickets = cursor.fetchone()["total"]
-
-
-        # ----------------------------------------------------
-        # RESOLVED TICKETS
-        # ----------------------------------------------------
-
-        cursor.execute("""
-            SELECT COUNT(*) AS total
-            FROM tickets
-            WHERE status = 'Resolved'
-        """)
-
-        resolved_tickets = cursor.fetchone()["total"]
-
-
-        # ----------------------------------------------------
-        # RECENT TICKETS
-        # ----------------------------------------------------
-
-        cursor.execute("""
-            SELECT
-                t.ticket_id,
-                t.location,
-                t.priority,
-                t.status,
-                t.created_at,
-
-                c.name AS category,
-
-                u.full_name AS user_name,
-
-                technician.full_name AS technician_name
-
-            FROM tickets t
-
-            INNER JOIN categories c
-                ON t.category_id = c.id
-
-            INNER JOIN users u
-                ON t.user_id = u.id
-
-            LEFT JOIN users technician
-                ON t.technician_id = technician.id
-
-            ORDER BY t.created_at DESC
-
-            LIMIT 5
-        """)
-
-        recent_tickets = cursor.fetchall()
-
-
-        # ----------------------------------------------------
-        # TOTAL USERS
-        # ----------------------------------------------------
-
-        cursor.execute("""
-            SELECT COUNT(*) AS total
-            FROM users
-        """)
-
-        total_users = cursor.fetchone()["total"]
-
-
-        # ----------------------------------------------------
-        # TOTAL TECHNICIANS
-        # ----------------------------------------------------
-
-        cursor.execute("""
-            SELECT COUNT(*) AS total
-            FROM users
-            WHERE role = 'technician'
-        """)
-
-        total_technicians = cursor.fetchone()["total"]
-
-
-        # ----------------------------------------------------
-        # RETURN DASHBOARD DATA
-        # ----------------------------------------------------
-
-        return jsonify({
-
-            "status": "success",
-
-            "statistics": {
-
-                "total_tickets": total_tickets,
-
-                "pending": pending_tickets,
-
-                "in_progress": in_progress_tickets,
-
-                "resolved": resolved_tickets,
-
-                "total_users": total_users,
-
-                "total_technicians": total_technicians
-
-            },
-
-            "recent_tickets": recent_tickets
-
-        }), 200
-
-
-    except psycopg2.Error as error:
-
-        print("Admin Dashboard Error:", error)
-
-        return jsonify({
-            "status": "error",
-            "message": "Database error occurred.",
-            "error": str(error)
-        }), 500
-
-
-    finally:
-
-        if cursor:
-            cursor.close()
-
-        if connection is not None:
-            connection.close()
+    db.commit()
+    return {"status": "success", "message": "Feedback submitted successfully. Thank you!"}

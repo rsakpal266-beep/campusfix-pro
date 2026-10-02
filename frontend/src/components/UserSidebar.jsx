@@ -3,6 +3,8 @@ import { NavLink, Link, useNavigate } from "react-router-dom";
 
 function UserSidebar() {
   const navigate = useNavigate();
+  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const userRole = storedUser.role || "student";
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -24,8 +26,38 @@ function UserSidebar() {
       </Link>
 
       {/* Role Pill */}
-      <div className="sidebar-role-badge user-badge">
-        <span>👤</span> User Portal
+      <div
+        className="sidebar-role-badge user-badge"
+        style={{
+          background: "rgba(163, 230, 53, 0.12)",
+          border: "1px solid var(--cf-lime)",
+          color: "var(--cf-lime)",
+          padding: "8px 12px",
+          borderRadius: "8px",
+          margin: "0 12px 16px 12px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "2px",
+          textAlign: "left",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: "700", fontSize: "12px", textTransform: "capitalize" }}>
+          <span>{userRole === "faculty" ? "👩‍🏫" : "🎓"}</span> {userRole === "faculty" ? "Faculty Member" : "Student"}
+        </div>
+        {storedUser.college_name && (
+          <div
+            style={{
+              fontSize: "11px",
+              color: "#e2e8f0",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+            title={storedUser.college_name}
+          >
+            🏛️ {storedUser.college_name}
+          </div>
+        )}
       </div>
 
       {/* Navigation */}

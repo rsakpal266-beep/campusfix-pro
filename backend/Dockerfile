@@ -1,4 +1,4 @@
-# ---------- Backend: Flask API ----------
+# ---------- Backend: FastAPI Application ----------
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -12,5 +12,5 @@ COPY . .
 
 EXPOSE 5000
 
-# Gunicorn for production. app:app => app.py exposes `app`
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "app:app"]
+# Run FastAPI with uvicorn
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5000", "--workers", "2"]

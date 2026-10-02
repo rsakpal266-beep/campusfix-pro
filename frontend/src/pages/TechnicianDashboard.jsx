@@ -41,7 +41,7 @@ function TechnicianDashboard() {
       setTickets(data.tickets || []);
 
     } catch (error) {
-      setError("Cannot connect to Flask backend.");
+      setError("Cannot connect to backend server.");
     } finally {
       setLoading(false);
     }

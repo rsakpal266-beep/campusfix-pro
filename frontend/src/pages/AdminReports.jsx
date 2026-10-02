@@ -1,417 +1,261 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import AdminSidebar from "../components/AdminSidebar";
+import { API_BASE_URL } from "../config";
 
 function AdminReports() {
-  const categoryData = [
-    { name: "Electrical", tickets: 28 },
-    { name: "Plumbing", tickets: 21 },
-    { name: "Furniture", tickets: 18 },
-    { name: "Cleaning", tickets: 15 },
-    { name: "Internet / Network", tickets: 12 },
-    { name: "Classroom Equipment", tickets: 10 },
-  ];
+  const [reportData, setReportData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const technicianData = [
-    {
-      name: "Rahul Patil",
-      assigned: 18,
-      resolved: 14,
-      pending: 4,
-    },
-    {
-      name: "Ajay Sharma",
-      assigned: 15,
-      resolved: 11,
-      pending: 4,
-    },
-    {
-      name: "Priya Shah",
-      assigned: 12,
-      resolved: 9,
-      pending: 3,
-    },
-  ];
+  useEffect(() => {
+    const fetchReports = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem("token");
 
-  const recentActivity = [
-    {
-      ticket: "CF-1024",
-      issue: "Water Leakage",
-      status: "Pending",
-      date: "19 Sep 2026",
-    },
-    {
-      ticket: "CF-1023",
-      issue: "Broken Fan",
-      status: "In Progress",
-      date: "19 Sep 2026",
-    },
-    {
-      ticket: "CF-1022",
-      issue: "Damaged Chair",
-      status: "Resolved",
-      date: "18 Sep 2026",
-    },
-    {
-      ticket: "CF-1021",
-      issue: "Network Problem",
-      status: "Pending",
-      date: "18 Sep 2026",
-    },
-  ];
+        if (!token) {
+          setError("Please login as College Administrator.");
+          return;
+        }
 
-  const maxCategoryTickets = Math.max(
-    ...categoryData.map((item) => item.tickets)
-  );
+        const response = await fetch(`${API_BASE_URL}/api/admin/reports`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.status === "success") {
+          setReportData(data);
+        } else {
+          setError(data.detail || data.message || "Failed to load report analytics.");
+        }
+      } catch (err) {
+        console.error("Reports fetch error:", err);
+        setError("Unable to connect to backend server.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchReports();
+  }, []);
+
+  const categoryData = reportData?.category_data || [];
+  const technicianData = reportData?.technician_data || [];
+  const priorityData = reportData?.priority_data || { High: 0, Medium: 0, Low: 0 };
+  const recentActivity = reportData?.recent_activity || [];
+  const averageRating = reportData?.average_rating || 5.0;
+
+  const totalTickets = categoryData.reduce((acc, c) => acc + (c.tickets || 0), 0);
+  const totalResolved = technicianData.reduce((acc, t) => acc + (t.resolved || 0), 0);
+  const resolutionRate = totalTickets > 0 ? Math.round((totalResolved / totalTickets) * 100) : 100;
+
+  const maxCategoryTickets = Math.max(1, ...categoryData.map((item) => item.tickets));
+
+  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const collegeName = storedUser.college_name || "College Administration";
 
   return (
     <div className="dashboard-page">
-      {/* Sidebar */}
       <AdminSidebar />
 
-      {/* Main Content */}
       <main className="dashboard-main">
-
-        {/* Header */}
-        <header className="dashboard-header">
-
+        {/* HEADER */}
+        <header className="dashboard-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <h1>Reports & Analytics</h1>
-
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+              <span className="role-badge admin">🏛️ {collegeName}</span>
+              <span style={{ color: "var(--cf-lime)", fontSize: "13px", fontWeight: "600" }}>• Institutional Analytics</span>
+            </div>
+            <h1>Campus Maintenance Analytics & Reports</h1>
             <p>
-              Monitor campus maintenance performance and ticket activity.
+              Live performance metrics, technician workloads, and resolution tracking for {collegeName}.
             </p>
           </div>
-
-          <div className="admin-profile">
-
-            <div className="profile-avatar">
-              A
-            </div>
-
-            <div>
-              <strong>Administrator</strong>
-              <span>Admin</span>
-            </div>
-
-          </div>
-
-        </header>
-
-        {/* Print Button */}
-        <div className="reports-actions">
 
           <button
             className="print-report-btn"
             onClick={() => window.print()}
+            style={{
+              padding: "10px 20px",
+              background: "rgba(163, 230, 53, 0.12)",
+              border: "1px solid var(--cf-lime)",
+              color: "var(--cf-lime)",
+              borderRadius: "10px",
+              fontWeight: "700",
+              cursor: "pointer",
+            }}
           >
-            🖨️ Print Report
+            🖨️ Print / Export Report
           </button>
+        </header>
 
-        </div>
+        {error && <div className="notification-error" style={{ margin: "15px 0" }}>⚠️ {error}</div>}
 
-        {/* Statistics */}
-        <section className="report-stats-grid">
-
-          <div className="report-stat-card">
-            <div className="report-stat-icon">
-              🎫
-            </div>
-
+        {/* 4 SUMMARY STAT CARDS */}
+        <section className="report-stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "18px", margin: "20px 0" }}>
+          <div className="report-stat-card stat-card" style={{ padding: "20px" }}>
+            <div className="report-stat-icon" style={{ fontSize: "28px" }}>🎫</div>
             <div>
-              <h3>128</h3>
-              <p>Total Tickets</p>
+              <h3>{totalTickets}</h3>
+              <p>Total Complaints Logged</p>
             </div>
           </div>
 
-          <div className="report-stat-card">
-            <div className="report-stat-icon">
-              ⏳
-            </div>
-
+          <div className="report-stat-card stat-card" style={{ padding: "20px" }}>
+            <div className="report-stat-icon" style={{ fontSize: "28px" }}>⚡</div>
             <div>
-              <h3>24</h3>
-              <p>Pending Tickets</p>
+              <h3>{resolutionRate}%</h3>
+              <p>Overall Resolution Rate</p>
             </div>
           </div>
 
-          <div className="report-stat-card">
-            <div className="report-stat-icon">
-              🔧
-            </div>
-
+          <div className="report-stat-card stat-card" style={{ padding: "20px" }}>
+            <div className="report-stat-icon" style={{ fontSize: "28px" }}>⭐</div>
             <div>
-              <h3>31</h3>
-              <p>In Progress</p>
+              <h3>{averageRating} / 5.0</h3>
+              <p>Student / Faculty Rating</p>
             </div>
           </div>
 
-          <div className="report-stat-card">
-            <div className="report-stat-icon">
-              ✅
-            </div>
-
+          <div className="report-stat-card stat-card" style={{ padding: "20px" }}>
+            <div className="report-stat-icon" style={{ fontSize: "28px" }}>👨‍🔧</div>
             <div>
-              <h3>73</h3>
-              <p>Resolved Tickets</p>
+              <h3>{technicianData.length}</h3>
+              <p>Active Technicians</p>
             </div>
           </div>
-
         </section>
 
-        {/* Reports Grid */}
-        <section className="reports-grid">
-
-          {/* Category Report */}
-          <div className="report-card">
-
-            <div className="report-card-header">
-              <div>
-                <h2>Complaints by Category</h2>
-                <p>Number of tickets in each category.</p>
-              </div>
-
-              <span className="report-card-icon">
-                📂
-              </span>
-            </div>
-
-            <div className="category-report-list">
-
-              {categoryData.map((category) => (
-
-                <div
-                  className="category-report-row"
-                  key={category.name}
-                >
-
-                  <div className="category-report-info">
-
-                    <span>
-                      {category.name}
-                    </span>
-
-                    <strong>
-                      {category.tickets}
-                    </strong>
-
-                  </div>
-
-                  <div className="category-progress">
-                    <div
-                      className="category-progress-fill"
-                      style={{
-                        width: `${
-                          (category.tickets /
-                            maxCategoryTickets) *
-                          100
-                        }%`,
-                      }}
-                    ></div>
-                  </div>
-
-                </div>
-
-              ))}
-
-            </div>
-
+        {loading ? (
+          <div style={{ textAlign: "center", padding: "50px", color: "var(--cf-muted)" }}>
+            Computing live reports from database...
           </div>
+        ) : (
+          <>
+            {/* TWO COLUMN: CATEGORY TICKETS & TECHNICIAN PERFORMANCE */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", margin: "24px 0" }}>
+              {/* Category Breakdown */}
+              <section style={{ background: "var(--cf-card)", padding: "24px", borderRadius: "16px", border: "1px solid var(--cf-border)" }}>
+                <h2 style={{ color: "#ffffff", margin: "0 0 6px 0", fontSize: "18px" }}>Complaints by Category</h2>
+                <p style={{ color: "var(--cf-muted)", fontSize: "13px", margin: "0 0 20px 0" }}>Volume distribution across campus facilities</p>
 
-          {/* Ticket Status Report */}
-          <div className="report-card">
-
-            <div className="report-card-header">
-
-              <div>
-                <h2>Ticket Status</h2>
-                <p>Current ticket distribution.</p>
-              </div>
-
-              <span className="report-card-icon">
-                📊
-              </span>
-
-            </div>
-
-            <div className="status-report">
-
-              <div className="status-report-item">
-                <span className="status-circle pending-circle"></span>
-
-                <div>
-                  <strong>24</strong>
-                  <span>Pending</span>
-                </div>
-              </div>
-
-              <div className="status-report-item">
-                <span className="status-circle progress-circle"></span>
-
-                <div>
-                  <strong>31</strong>
-                  <span>In Progress</span>
-                </div>
-              </div>
-
-              <div className="status-report-item">
-                <span className="status-circle resolved-circle"></span>
-
-                <div>
-                  <strong>73</strong>
-                  <span>Resolved</span>
-                </div>
-              </div>
-
-            </div>
-
-            <div className="status-total">
-              <strong>128</strong>
-              <span>Total Tickets</span>
-            </div>
-
-          </div>
-
-        </section>
-
-        {/* Technician Workload */}
-        <section className="report-card technician-report-card">
-
-          <div className="report-card-header">
-
-            <div>
-              <h2>Technician Workload</h2>
-
-              <p>
-                Assigned and resolved tickets by technician.
-              </p>
-            </div>
-
-            <span className="report-card-icon">
-              👨‍🔧
-            </span>
-
-          </div>
-
-          <div className="technician-table-wrapper">
-
-            <table className="technician-report-table">
-
-              <thead>
-                <tr>
-                  <th>Technician</th>
-                  <th>Assigned</th>
-                  <th>Resolved</th>
-                  <th>Pending</th>
-                </tr>
-              </thead>
-
-              <tbody>
-
-                {technicianData.map((technician) => (
-
-                  <tr key={technician.name}>
-
-                    <td>
-                      <div className="technician-name">
-                        <div className="technician-avatar">
-                          {technician.name.charAt(0)}
+                {categoryData.length === 0 ? (
+                  <p style={{ color: "var(--cf-muted)" }}>No complaints recorded yet.</p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                    {categoryData.map((cat, idx) => {
+                      const barWidth = Math.round((cat.tickets / maxCategoryTickets) * 100);
+                      return (
+                        <div key={idx}>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px", fontSize: "13px" }}>
+                            <span style={{ color: "#ffffff", fontWeight: "600" }}>{cat.name}</span>
+                            <span style={{ color: "var(--cf-lime)", fontWeight: "700" }}>
+                              {cat.tickets} tickets
+                            </span>
+                          </div>
+                          <div style={{ height: "10px", background: "rgba(255, 255, 255, 0.08)", borderRadius: "5px", overflow: "hidden" }}>
+                            <div
+                              style={{
+                                width: `${Math.max(barWidth, 6)}%`,
+                                height: "100%",
+                                background: "linear-gradient(90deg, #15803d, #a3e635)",
+                                borderRadius: "5px",
+                              }}
+                            ></div>
+                          </div>
                         </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
 
-                        <strong>
-                          {technician.name}
-                        </strong>
-                      </div>
-                    </td>
+              {/* Technician Resolution Leaderboard */}
+              <section style={{ background: "var(--cf-card)", padding: "24px", borderRadius: "16px", border: "1px solid var(--cf-border)" }}>
+                <h2 style={{ color: "#ffffff", margin: "0 0 6px 0", fontSize: "18px" }}>Technician Resolution Rate</h2>
+                <p style={{ color: "var(--cf-muted)", fontSize: "13px", margin: "0 0 20px 0" }}>Dispatched vs completed work orders</p>
 
-                    <td>
-                      {technician.assigned}
-                    </td>
-
-                    <td>
-                      <span className="resolved-number">
-                        {technician.resolved}
-                      </span>
-                    </td>
-
-                    <td>
-                      <span className="pending-number">
-                        {technician.pending}
-                      </span>
-                    </td>
-
-                  </tr>
-
-                ))}
-
-              </tbody>
-
-            </table>
-
-          </div>
-
-        </section>
-
-        {/* Recent Activity */}
-        <section className="report-card recent-activity-card">
-
-          <div className="report-card-header">
-
-            <div>
-              <h2>Recent Ticket Activity</h2>
-
-              <p>
-                Latest maintenance ticket updates.
-              </p>
+                {technicianData.length === 0 ? (
+                  <p style={{ color: "var(--cf-muted)" }}>No technicians assigned yet.</p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                    {technicianData.map((tech, idx) => {
+                      const totalAssigned = tech.assigned || 1;
+                      const rate = Math.round(((tech.resolved || 0) / totalAssigned) * 100);
+                      return (
+                        <div key={idx} style={{ padding: "12px", background: "#05120a", borderRadius: "10px", border: "1px solid rgba(74, 222, 128, 0.15)" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <strong style={{ color: "#ffffff" }}>{tech.name}</strong>
+                            <span style={{ color: "var(--cf-lime)", fontWeight: "700" }}>
+                              {tech.resolved} / {tech.assigned} ({rate}%)
+                            </span>
+                          </div>
+                          <div style={{ display: "flex", gap: "12px", marginTop: "6px", fontSize: "12px", color: "var(--cf-muted)" }}>
+                            <span>Resolved: {tech.resolved}</span>
+                            <span>•</span>
+                            <span>Pending: {tech.pending}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
             </div>
 
-            <span className="report-card-icon">
-              🕒
-            </span>
+            {/* RECENT MAINTENANCE ACTIVITY */}
+            <section style={{ background: "var(--cf-card)", padding: "24px", borderRadius: "16px", border: "1px solid var(--cf-border)" }}>
+              <h2 style={{ color: "#ffffff", margin: "0 0 6px 0", fontSize: "18px" }}>Recent Ticket Activity</h2>
+              <p style={{ color: "var(--cf-muted)", fontSize: "13px", margin: "0 0 18px 0" }}>Real-time audit log of latest maintenance complaints</p>
 
-          </div>
-
-          <div className="recent-activity-list">
-
-            {recentActivity.map((activity) => (
-
-              <div
-                className="recent-activity-row"
-                key={activity.ticket}
-              >
-
-                <div>
-                  <strong>
-                    #{activity.ticket}
-                  </strong>
-
-                  <span>
-                    {activity.issue}
-                  </span>
-                </div>
-
-                <span
-                  className={`status ${activity.status
-                    .toLowerCase()
-                    .replace(" ", "-")}`}
-                >
-                  {activity.status}
-                </span>
-
-                <span className="activity-date">
-                  {activity.date}
-                </span>
-
-              </div>
-
-            ))}
-
-          </div>
-
-        </section>
-
+              {recentActivity.length === 0 ? (
+                <p style={{ color: "var(--cf-muted)" }}>No recent ticket logs.</p>
+              ) : (
+                <table className="users-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      <th>Ticket ID</th>
+                      <th>Problem Description</th>
+                      <th>Current Status</th>
+                      <th>Submission Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentActivity.map((item, idx) => (
+                      <tr key={idx}>
+                        <td>
+                          <strong style={{ color: "var(--cf-lime)", fontFamily: "monospace" }}>
+                            #{item.ticket}
+                          </strong>
+                        </td>
+                        <td style={{ color: "#ffffff" }}>{item.issue}</td>
+                        <td>
+                          <span
+                            className={`status ${
+                              item.status === "Resolved"
+                                ? "resolved"
+                                : item.status === "In Progress"
+                                ? "progress"
+                                : "pending"
+                            }`}
+                          >
+                            {item.status}
+                          </span>
+                        </td>
+                        <td style={{ color: "var(--cf-muted)" }}>{item.date}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </section>
+          </>
+        )}
       </main>
-
     </div>
   );
 }

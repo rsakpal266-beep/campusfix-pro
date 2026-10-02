@@ -6,9 +6,12 @@ function Register() {
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
-    full_name: "",
+    college_name: "",
+    college_code: "",
+    admin_name: "",
     email: "",
-    role: "student",
+    phone: "",
+    campus_address: "",
     password: "",
     confirmPassword: "",
   });
@@ -26,11 +29,19 @@ function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     setMessage("");
     setError("");
 
-    // Check password confirmation
+    if (!formData.college_name.trim()) {
+      setError("Please enter your College / Institution Name.");
+      return;
+    }
+
+    if (!formData.email.trim()) {
+      setError("Please provide an official college email address.");
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match.");
       return;
@@ -44,47 +55,45 @@ function Register() {
     setLoading(true);
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/register`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            full_name: formData.full_name,
-            email: formData.email,
-            role: formData.role,
-            password: formData.password,
-          }),
-        }
-      );
+      const response = await fetch(`${API_BASE_URL}/api/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          college_name: formData.college_name.trim(),
+          college_code: formData.college_code.trim(),
+          admin_name: formData.admin_name.trim() || `${formData.college_name.trim()} Administrator`,
+          email: formData.email.trim().toLowerCase(),
+          phone: formData.phone.trim(),
+          campus_address: formData.campus_address.trim(),
+          password: formData.password,
+        }),
+      });
 
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.message || "Registration failed.");
+        setError(data.detail || data.message || "Registration failed.");
         return;
       }
 
-      setMessage("Registration successful! Redirecting to login...");
+      // Automatically store token & user
+      if (data.token && data.user) {
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+      }
 
-      setFormData({
-        full_name: "",
-        email: "",
-        role: "student",
-        password: "",
-        confirmPassword: "",
-      });
+      setMessage(
+        `🎉 ${formData.college_name} registered successfully! Redirecting to College Management Console...`
+      );
 
       setTimeout(() => {
-        navigate("/login");
+        navigate("/admin-dashboard");
       }, 1500);
-
-    } catch (error) {
-      setError(
-        "Unable to connect to the server. Make sure Flask is running."
-      );
+    } catch (err) {
+      console.error("Register error:", err);
+      setError("Unable to connect to the backend server. Please verify your connection.");
     } finally {
       setLoading(false);
     }
@@ -92,111 +101,219 @@ function Register() {
 
   return (
     <div className="auth-page">
-
-      <div className="auth-card">
-
+      <div className="auth-card auth-card-enhanced" style={{ maxWidth: "560px" }}>
+        {/* Brand Header */}
         <div className="login-logo">
           <div className="login-brand-text">
             <strong>
               CampusFix <span>Pro</span>
             </strong>
-
-            <small>MAINTENANCE & REPAIR SYSTEM</small>
+            <small>INSTITUTIONAL MAINTENANCE & REPAIR SYSTEM</small>
           </div>
         </div>
 
-        <h2>Create Account</h2>
+        <div style={{ textAlign: "center", marginBottom: "16px" }}>
+          <span style={{ fontSize: "36px" }}>🏛️</span>
+          <h2 style={{ margin: "6px 0", color: "#ffffff" }}>Register Your College</h2>
+          <p className="auth-subtitle" style={{ margin: 0 }}>
+            Create an official institution account to manage campus work orders, technicians, faculty, and students.
+          </p>
+        </div>
 
-        <p className="auth-subtitle">
-          Register to report and track campus maintenance issues.
-        </p>
+        {/* Institutional Onboarding Notice */}
+        <div
+          style={{
+            background: "rgba(163, 230, 53, 0.08)",
+            border: "1px dashed var(--cf-lime)",
+            borderRadius: "10px",
+            padding: "12px 14px",
+            marginBottom: "18px",
+            fontSize: "13px",
+            color: "#e2e8f0",
+            lineHeight: "1.5",
+          }}
+        >
+          <strong style={{ color: "var(--cf-lime)" }}>🛡️ How Access Works:</strong>
+          <br />
+          Only Colleges/Institutions register here. Once registered, the College Admin adds{" "}
+          <strong>Technicians</strong>, <strong>Faculty</strong>, and <strong>Students</strong>{" "}
+          from the dashboard and provides them with their login email and password. Those roles do not self-register.
+        </div>
 
-        <form onSubmit={handleSubmit}>
-
-          <label>Full Name</label>
-          <input
-            type="text"
-            name="full_name"
-            value={formData.full_name}
-            onChange={handleChange}
-            placeholder="Enter your full name"
-            required
-          />
-
-          <label>Email</label>
-          <input
-            type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            placeholder="Enter your email"
-            required
-          />
-
-          <label>Role</label>
-
-          <select
-            name="role"
-            value={formData.role}
-            onChange={handleChange}
+        {error && (
+          <div
+            className="auth-error-banner"
+            style={{
+              background: "rgba(239, 68, 68, 0.15)",
+              border: "1px solid #ef4444",
+              color: "#fca5a5",
+              padding: "10px",
+              borderRadius: "8px",
+              marginBottom: "14px",
+              fontSize: "13px",
+            }}
           >
-            <option value="student">Student</option>
-            <option value="faculty">Faculty</option>
-          </select>
+            ⚠️ {error}
+          </div>
+        )}
 
-          <label>Password</label>
-          <input
-            type="password"
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            placeholder="Create a password"
-            required
-          />
+        {message && (
+          <div
+            className="auth-info-banner"
+            style={{
+              background: "rgba(163, 230, 53, 0.15)",
+              border: "1px solid var(--cf-lime)",
+              color: "var(--cf-lime)",
+              padding: "10px",
+              borderRadius: "8px",
+              marginBottom: "14px",
+              fontSize: "13px",
+            }}
+          >
+            {message}
+          </div>
+        )}
 
-          <label>Confirm Password</label>
-          <input
-            type="password"
-            name="confirmPassword"
-            value={formData.confirmPassword}
-            onChange={handleChange}
-            placeholder="Confirm your password"
-            required
-          />
-
-          {error && (
-            <div className="auth-error">
-              ❌ {error}
+        <form onSubmit={handleSubmit} className="login-form">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            {/* College Name */}
+            <div style={{ gridColumn: "span 2" }}>
+              <label>College / University Name *</label>
+              <input
+                type="text"
+                name="college_name"
+                value={formData.college_name}
+                onChange={handleChange}
+                placeholder="e.g. Apex Institute of Technology"
+                required
+              />
             </div>
-          )}
 
-          {message && (
-            <div className="auth-success">
-              ✅ {message}
+            {/* Campus Code */}
+            <div>
+              <label>College / Campus Code</label>
+              <input
+                type="text"
+                name="college_code"
+                value={formData.college_code}
+                onChange={handleChange}
+                placeholder="e.g. APEX-01"
+              />
             </div>
-          )}
+
+            {/* Administrator Full Name */}
+            <div>
+              <label>Admin / Registrar Name *</label>
+              <input
+                type="text"
+                name="admin_name"
+                value={formData.admin_name}
+                onChange={handleChange}
+                placeholder="e.g. Dr. Sarah Jenkins"
+                required
+              />
+            </div>
+
+            {/* Official College Email */}
+            <div style={{ gridColumn: "span 2" }}>
+              <label>Official College Admin Email *</label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="e.g. admin@apex.edu"
+                required
+              />
+            </div>
+
+            {/* Phone Number */}
+            <div>
+              <label>Contact Phone</label>
+              <input
+                type="text"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                placeholder="+91 98765 43210"
+              />
+            </div>
+
+            {/* Campus City / Address */}
+            <div>
+              <label>Campus Location / City</label>
+              <input
+                type="text"
+                name="campus_address"
+                value={formData.campus_address}
+                onChange={handleChange}
+                placeholder="e.g. North Campus, Pune"
+              />
+            </div>
+
+            {/* Password */}
+            <div>
+              <label>Password *</label>
+              <input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="Min 6 characters"
+                required
+              />
+            </div>
+
+            {/* Confirm Password */}
+            <div>
+              <label>Confirm Password *</label>
+              <input
+                type="password"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                placeholder="Repeat password"
+                required
+              />
+            </div>
+          </div>
 
           <button
             type="submit"
             className="auth-button"
             disabled={loading}
+            style={{ width: "100%", padding: "14px", marginTop: "16px" }}
           >
-            {loading ? "Creating Account..." : "Create Account"}
+            {loading ? "Registering College..." : "Register College & Launch Dashboard 🏛️"}
           </button>
-
         </form>
 
-        <p className="auth-switch">
-          Already have an account?
-          <Link to="/login"> Login</Link>
-        </p>
+        <div className="auth-switch" style={{ marginTop: "18px", textAlign: "center" }}>
+          <span>Already registered your College? </span>
+          <Link to="/login" style={{ color: "var(--cf-lime)", fontWeight: "bold" }}>
+            Sign In to Portal
+          </Link>
+        </div>
 
-        <Link to="/" className="back-home">
-          ← Back to Home
-        </Link>
+        <div
+          style={{
+            marginTop: "12px",
+            textAlign: "center",
+            fontSize: "12px",
+            color: "var(--cf-muted)",
+          }}
+        >
+          🎓 Are you a <strong>Technician</strong>, <strong>Faculty</strong>, or{" "}
+          <strong>Student</strong>?<br />
+          Please log in using the email & password provided by your College Admin.
+        </div>
 
+        <div style={{ textAlign: "center", marginTop: "14px" }}>
+          <Link to="/" className="back-home" style={{ color: "var(--cf-muted)", fontSize: "13px" }}>
+            ← Back to Homepage
+          </Link>
+        </div>
       </div>
-
     </div>
   );
 }

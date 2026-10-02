@@ -21,6 +21,8 @@ function AdminTickets() {
   const [assigning, setAssigning] = useState(false);
 
   const token = localStorage.getItem("token");
+  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const collegeName = storedUser.college_name || "College Administration";
 
   // ============================================================
   // LOAD TICKETS
@@ -49,7 +51,7 @@ function AdminTickets() {
 
       setTickets(data.tickets || []);
     } catch (error) {
-      setError("Cannot connect to Flask backend.");
+      setError("Cannot connect to backend server.");
     } finally {
       setLoading(false);
     }
@@ -141,7 +143,7 @@ function AdminTickets() {
 
       await loadTickets();
     } catch (error) {
-      alert("Cannot connect to Flask backend.");
+      alert("Cannot connect to backend server.");
     } finally {
       setAssigning(false);
     }
@@ -264,10 +266,14 @@ function AdminTickets() {
         <header className="dashboard-header">
 
           <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+              <span className="role-badge admin">🏛️ {collegeName}</span>
+              <span style={{ color: "var(--cf-lime)", fontSize: "13px", fontWeight: "600" }}>• Institutional Complaints</span>
+            </div>
             <h1>All Tickets</h1>
 
             <p>
-              Manage all campus maintenance complaints.
+              Manage maintenance complaints for {collegeName}.
             </p>
           </div>
 
@@ -276,8 +282,8 @@ function AdminTickets() {
             <span>A</span>
 
             <div>
-              <strong>Administrator</strong>
-              <small>Admin</small>
+              <strong>{storedUser.full_name || "Administrator"}</strong>
+              <small>{collegeName}</small>
             </div>
 
           </div>

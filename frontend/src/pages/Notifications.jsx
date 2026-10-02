@@ -44,13 +44,8 @@ function Notifications() {
       setNotifications(data.notifications || []);
 
     } catch (error) {
-
       console.error("Notification error:", error);
-
-      setError(
-        "Cannot connect to Flask backend. Make sure Flask backend is running."
-      );
-
+      setError("Cannot connect to backend server.");
     } finally {
 
       setLoading(false);

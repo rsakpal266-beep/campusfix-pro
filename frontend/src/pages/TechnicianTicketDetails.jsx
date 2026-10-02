@@ -50,7 +50,7 @@ function TechnicianTicketDetails() {
       setStatus(data.ticket.status || "Assigned");
       setResolution(data.ticket.resolution_details || "");
     } catch (error) {
-      setError("Cannot connect to Flask backend.");
+      setError("Cannot connect to backend server.");
     } finally {
       setLoading(false);
     }
@@ -119,7 +119,7 @@ const saveResolution = async () => {
     await loadTicket();
 
   } catch (error) {
-    setError("Cannot connect to Flask backend.");
+    setError("Cannot connect to backend server.");
   } finally {
     setSavingResolution(false);
   }

@@ -10,6 +10,8 @@ function TechnicianSidebar() {
     navigate("/login");
   };
 
+  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+
   return (
     <aside className="dashboard-sidebar">
       {/* Brand Logo */}
@@ -24,8 +26,38 @@ function TechnicianSidebar() {
       </Link>
 
       {/* Role Pill */}
-      <div className="sidebar-role-badge tech-badge">
-        <span>🛠️</span> Technician Portal
+      <div
+        className="sidebar-role-badge tech-badge"
+        style={{
+          background: "rgba(163, 230, 53, 0.15)",
+          border: "1px solid var(--cf-lime)",
+          color: "var(--cf-lime)",
+          padding: "8px 12px",
+          borderRadius: "8px",
+          margin: "0 12px 16px 12px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "2px",
+          textAlign: "left",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: "700", fontSize: "12px" }}>
+          <span>🛠️</span> Technician Portal
+        </div>
+        {storedUser.college_name && (
+          <div
+            style={{
+              fontSize: "11px",
+              color: "#e2e8f0",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+            title={storedUser.college_name}
+          >
+            🏛️ {storedUser.college_name}
+          </div>
+        )}
       </div>
 
       {/* Navigation */}
@@ -56,6 +88,13 @@ function TechnicianSidebar() {
           className={({ isActive }) => (isActive ? "active" : "")}
         >
           👤 <span>My Profile</span>
+        </NavLink>
+
+        <NavLink
+          to="/fixbot"
+          className={({ isActive }) => (isActive ? "active" : "")}
+        >
+          🤖 <span>FixBot AI</span>
         </NavLink>
       </nav>
 

@@ -65,7 +65,7 @@ function Home() {
       className="register-btn"
       onClick={() => navigate("/register")}
     >
-      Register
+      🏛️ Register College
     </button>
   </div>
 
@@ -93,7 +93,14 @@ function Home() {
 
       <button
         className="report-btn"
-        onClick={() => navigate("/register")}
+        onClick={() => {
+          const user = localStorage.getItem("user");
+          if (user) {
+            navigate("/raise-complaint");
+          } else {
+            navigate("/login");
+          }
+        }}
       >
         Report an Issue
       </button>

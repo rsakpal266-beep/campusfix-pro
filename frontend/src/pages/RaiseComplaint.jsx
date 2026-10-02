@@ -98,7 +98,7 @@ function RaiseComplaint() {
 
     } catch (error) {
       setError(
-        "Cannot connect to server. Make sure Flask backend is running."
+        "Cannot connect to server. Make sure the backend server is running."
       );
     } finally {
       setLoading(false);

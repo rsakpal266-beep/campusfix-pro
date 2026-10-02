@@ -2,87 +2,20 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../config";
 
-const DEMO_ROLES = [
-  {
-    id: "student",
-    name: "Student / User",
-    icon: "👤",
-    email: "student@campusfix.com",
-    password: "Student@123",
-    role: "student",
-    redirect: "/dashboard",
-    badge: "User Portal",
-    desc: "Submit complaints, track tickets, FixBot AI",
-  },
-  {
-    id: "technician",
-    name: "Technician",
-    icon: "🛠️",
-    email: "rahul@campusfix.com",
-    password: "Tech@123",
-    role: "technician",
-    redirect: "/technician-dashboard",
-    badge: "Tech Portal",
-    desc: "Manage assigned tasks, update ticket status",
-  },
-  {
-    id: "admin",
-    name: "Administrator",
-    icon: "👑",
-    email: "admin@campusfix.com",
-    password: "Admin@123",
-    role: "admin",
-    redirect: "/admin-dashboard",
-    badge: "Admin Portal",
-    desc: "Full system control, ticket & user management",
-  },
-];
-
 function Login() {
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
-  const [activeRole, setActiveRole] = useState(null);
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [infoMessage, setInfoMessage] = useState("");
 
-  const handleSelectRole = (roleItem) => {
-    setActiveRole(roleItem.id);
-    setEmail(roleItem.email);
-    setPassword(roleItem.password);
+  const executeLogin = async (e) => {
+    e.preventDefault();
     setError("");
-    setInfoMessage(`Filled credentials for ${roleItem.name}. Ready to login!`);
-  };
 
-  const handleDirectDemoAccess = (roleItem) => {
-    // Allows testing/demo mode if backend is offline or for instant evaluation
-    const demoUser = {
-      id: roleItem.id === "admin" ? 1 : roleItem.id === "technician" ? 2 : 3,
-      full_name:
-        roleItem.id === "admin"
-          ? "CampusFix Administrator"
-          : roleItem.id === "technician"
-          ? "Rahul Patil"
-          : "Demo Student",
-      email: roleItem.email,
-      role: roleItem.role,
-    };
-
-    localStorage.setItem("token", "demo-token-" + roleItem.id);
-    localStorage.setItem("user", JSON.stringify(demoUser));
-    navigate(roleItem.redirect);
-  };
-
-  const executeLogin = async (loginEmail, loginPassword) => {
-    setError("");
-    setInfoMessage("");
-
-    if (!loginEmail || !loginPassword) {
-      setError("Please enter email and password.");
+    if (!email || !password) {
+      setError("Please enter your email and password.");
       return;
     }
 
@@ -95,173 +28,144 @@ function Login() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email: loginEmail,
-          password: loginPassword,
+          email: email.trim().toLowerCase(),
+          password: password,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.message || "Login failed. Check credentials.");
+        setError(data.detail || data.message || "Invalid email or password. Please verify credentials.");
         return;
       }
 
-      // Save JWT token
+      // Save real JWT token and user info
       localStorage.setItem("token", data.token);
-
-      // Save logged-in user information
       localStorage.setItem("user", JSON.stringify(data.user));
 
-      // Redirect according to role
-      if (data.user.role === "student" || data.user.role === "faculty") {
-        navigate("/dashboard");
+      // Redirect by role
+      if (data.user.role === "admin") {
+        navigate("/admin-dashboard");
       } else if (data.user.role === "technician") {
         navigate("/technician-dashboard");
-      } else if (data.user.role === "admin") {
-        navigate("/admin-dashboard");
+      } else if (data.user.role === "faculty" || data.user.role === "student") {
+        navigate("/dashboard");
       } else {
-        setError("Unknown user role: " + data.user.role);
+        navigate("/dashboard");
       }
     } catch (err) {
-      console.warn("Backend connection failed, offering direct demo access:", err);
-      setError(
-        "Cannot connect to Flask backend. Make sure the server is running on " +
-          API_BASE_URL +
-          ", or use the 'Direct Access' buttons below."
-      );
+      console.error("Login connection error:", err);
+      setError(`Unable to reach backend at ${API_BASE_URL}. Ensure the service is running.`);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleFormSubmit = (e) => {
-    e.preventDefault();
-    executeLogin(email, password);
-  };
-
-  const handleQuickLogin = (roleItem) => {
-    handleSelectRole(roleItem);
-    executeLogin(roleItem.email, roleItem.password);
-  };
-
   return (
     <div className="auth-page">
-      <div className="auth-card auth-card-enhanced">
+      <div className="auth-card auth-card-enhanced" style={{ maxWidth: "460px" }}>
+        {/* Brand Header */}
         <div className="login-logo">
           <div className="login-brand-text">
             <strong>
               CampusFix <span>Pro</span>
             </strong>
-            <small>MAINTENANCE & REPAIR SYSTEM</small>
+            <small>CAMPUS MAINTENANCE & REPAIR SYSTEM</small>
           </div>
         </div>
 
-        <h2>Welcome Back!</h2>
+        <h2>Sign In to Portal</h2>
         <p className="auth-subtitle">
-          Select a role or enter your credentials to access your dashboard.
+          Sign in with your official account credentials.
         </p>
 
-        {/* Quick Role Selectors */}
-        <div className="role-selector-container">
-          <p className="role-selector-title">⚡ Quick Role Selection & Demo Login</p>
-          <div className="role-selector-grid">
-            {DEMO_ROLES.map((roleItem) => (
-              <button
-                key={roleItem.id}
-                type="button"
-                className={`role-select-btn ${activeRole === roleItem.id ? "active" : ""}`}
-                onClick={() => handleSelectRole(roleItem)}
-                title={roleItem.desc}
-              >
-                <div className="role-btn-top">
-                  <span className="role-btn-icon">{roleItem.icon}</span>
-                  <span className="role-btn-name">{roleItem.name}</span>
-                </div>
-                <small className="role-btn-badge">{roleItem.badge}</small>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {infoMessage && <p className="auth-info-message">ℹ️ {infoMessage}</p>}
-
-        <form onSubmit={handleFormSubmit}>
-          <label>Email / Username</label>
-          <input
-            type="text"
-            placeholder="Enter your email or username"
-            value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              setActiveRole(null);
+        {/* Feedback Messages */}
+        {error && (
+          <div
+            className="auth-error-banner"
+            style={{
+              background: "rgba(239, 68, 68, 0.15)",
+              border: "1px solid #ef4444",
+              color: "#fca5a5",
+              padding: "10px",
+              borderRadius: "8px",
+              margin: "12px 0",
+              fontSize: "14px",
             }}
-          />
+          >
+            ⚠️ {error}
+          </div>
+        )}
 
-          <label>Password</label>
-          <input
-            type="password"
-            placeholder="Enter your password"
-            value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              setActiveRole(null);
-            }}
-          />
-
-          <div className="auth-options">
-            <label className="remember">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-              />
-              Remember me
-            </label>
-
-            <Link to="/forgot-password">Forgot Password?</Link>
+        {/* Login Form */}
+        <form onSubmit={executeLogin} className="login-form">
+          <div className="form-group">
+            <label htmlFor="login-email">Campus / Official Email</label>
+            <input
+              id="login-email"
+              type="email"
+              placeholder="e.g. yourname@college.edu"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
           </div>
 
-          {error && <div className="auth-error">{error}</div>}
-
-          <div className="auth-actions-group">
-            <button
-              type="submit"
-              className="auth-button"
-              disabled={loading}
-            >
-              {loading ? "Logging in..." : "Login"}
-            </button>
+          <div className="form-group">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <label htmlFor="login-password">Password</label>
+              <Link to="/forgot-password" style={{ color: "var(--cf-lime)", fontSize: "13px", textDecoration: "none" }}>
+                Forgot Password?
+              </Link>
+            </div>
+            <input
+              id="login-password"
+              type="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
           </div>
+
+          <button
+            type="submit"
+            className="auth-button"
+            disabled={loading}
+            style={{ width: "100%", padding: "14px", marginTop: "10px" }}
+          >
+            {loading ? "Authenticating..." : "Sign In 🚀"}
+          </button>
         </form>
 
-        {/* Direct Demo / Portal Access */}
-        <div className="demo-portals-section">
-          <p className="demo-portals-heading">
-            <span>Direct Portal Access (Demo Mode)</span>
-          </p>
-          <div className="demo-portals-buttons">
-            {DEMO_ROLES.map((roleItem) => (
-              <button
-                key={roleItem.id}
-                type="button"
-                className="demo-portal-pill"
-                onClick={() => handleDirectDemoAccess(roleItem)}
-              >
-                {roleItem.icon} {roleItem.name}
-              </button>
-            ))}
-          </div>
+        <div
+          style={{
+            marginTop: "20px",
+            padding: "14px",
+            background: "rgba(163, 230, 53, 0.08)",
+            borderRadius: "10px",
+            border: "1px dashed rgba(163, 230, 53, 0.35)",
+            fontSize: "13px",
+            color: "#e2e8f0",
+            lineHeight: "1.5",
+          }}
+        >
+          🎓 <strong>Students, Faculty & Technicians:</strong> Accounts are provisioned directly by your College Administration. Please use the email and password provided by your institution.
         </div>
 
-        <p className="auth-switch">
-          Don't have an account?
-          <Link to="/register"> Register</Link>
-        </p>
+        <div className="auth-switch" style={{ marginTop: "18px", textAlign: "center" }}>
+          <span>New College or University? </span>
+          <Link to="/register" style={{ color: "var(--cf-lime)", fontWeight: "bold" }}>
+            Register Your College 🏛️
+          </Link>
+        </div>
 
-        <Link to="/" className="back-home">
-          ← Back to Home
-        </Link>
+        <div style={{ textAlign: "center", marginTop: "14px" }}>
+          <Link to="/" className="back-home" style={{ color: "var(--cf-muted)", fontSize: "13px" }}>
+            ← Back to Homepage
+          </Link>
+        </div>
       </div>
     </div>
   );
