@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import AdminSidebar from "../components/AdminSidebar";
@@ -7,8 +8,17 @@ function AdminNotifications() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
   const [authExpired, setAuthExpired] = useState(false);
+
+  const token = localStorage.getItem("token");
+  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const adminName = storedUser.full_name || storedUser.name || "Administrator";
+  const collegeName = storedUser.college_name || "College Administration";
+
+  const isUnread = (notification) =>
+    notification.is_read === false ||
+    notification.is_read === 0 ||
+    notification.is_read === "0";
 
   const fetchNotifications = async () => {
     try {
@@ -16,34 +26,41 @@ function AdminNotifications() {
       setError("");
       setAuthExpired(false);
 
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setError("Please sign in as College Administrator to view system notifications.");
+      const currentToken = localStorage.getItem("token");
+
+      if (!currentToken) {
+        setError("Please sign in as College Administrator to view notifications.");
         setAuthExpired(true);
         return;
       }
 
       const response = await fetch(`${API_BASE_URL}/api/notifications`, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${currentToken}`,
         },
       });
 
       if (response.status === 401) {
         setAuthExpired(true);
-        setError("Your session has expired or your credentials were reset. Please sign in again.");
+        setError("Your session has expired. Please sign in again.");
         return;
       }
 
       const data = await response.json();
-      if (response.ok && data.status === "success") {
-        setNotifications(data.notifications || []);
-      } else {
-        setError(data.detail || data.message || "Failed to load notifications.");
+
+      if (!response.ok || data.status !== "success") {
+        throw new Error(
+          data.detail || data.message || "Failed to load notifications."
+        );
       }
+
+      setNotifications(data.notifications || []);
     } catch (err) {
       console.error("Notifications fetch error:", err);
-      setError(`Cannot connect to backend server at ${API_BASE_URL}. Ensure backend service is online.`);
+      setError(
+        err.message ||
+        `Cannot connect to backend server at ${API_BASE_URL}.`
+      );
     } finally {
       setLoading(false);
     }
@@ -53,41 +70,74 @@ function AdminNotifications() {
     fetchNotifications();
   }, []);
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const unreadCount = notifications.filter(isUnread).length;
 
   const markAsRead = async (id) => {
     try {
-      const token = localStorage.getItem("token");
-      await fetch(`${API_BASE_URL}/api/notifications/${id}/read`, {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+      const currentToken = localStorage.getItem("token");
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/notifications/${id}/read`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${currentToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to mark notification as read.");
+      }
+
+      setNotifications((previous) =>
+        previous.map((notification) =>
+          notification.id === id
+            ? { ...notification, is_read: true }
+            : notification
+        )
       );
     } catch (err) {
-      console.error(err);
+      console.error("Mark as read error:", err);
+      setError(err.message || "Could not update notification.");
     }
   };
 
   const markAllAsRead = async () => {
     try {
-      const token = localStorage.getItem("token");
-      await fetch(`${API_BASE_URL}/api/notifications/read-all`, {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      const currentToken = localStorage.getItem("token");
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/notifications/read-all`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${currentToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to mark all notifications as read.");
+      }
+
+      setNotifications((previous) =>
+        previous.map((notification) => ({
+          ...notification,
+          is_read: true,
+        }))
+      );
     } catch (err) {
-      console.error(err);
+      console.error("Mark all as read error:", err);
+      setError(err.message || "Could not update notifications.");
     }
   };
 
   const getIcon = (type) => {
-    if (type === "assignment") return "🛠️";
+    if (type === "assignment") return "👨‍🔧";
     if (type === "priority") return "⚠️";
     if (type === "feedback") return "⭐";
-    return "📬";
+    return "🔔";
   };
 
   return (
@@ -95,144 +145,197 @@ function AdminNotifications() {
       <AdminSidebar />
 
       <main className="dashboard-main">
-        <header className="dashboard-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        {/* Header */}
+        <header
+          className="dashboard-header"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "16px",
+            flexWrap: "wrap",
+          }}
+        >
           <div>
-            <span className="role-badge admin" style={{ display: "inline-block", marginBottom: "6px" }}>
-              👑 College Administration
-            </span>
-            <h1>System Alerts & Notifications</h1>
-            <p>Real-time campus maintenance dispatches, priority escalations, and status alerts.</p>
+            <h1>Notifications</h1>
+            <p>
+              View important campus maintenance updates and system alerts.
+            </p>
           </div>
 
-          {unreadCount > 0 && (
-            <button
-              onClick={markAllAsRead}
-              className="onboard-btn"
-              style={{ padding: "8px 16px", fontSize: "13px" }}
-            >
-              ✓ Mark All as Read
-            </button>
-          )}
+          <Link
+            to="/admin-dashboard"
+            className="admin-profile"
+            style={{ textDecoration: "none", cursor: "pointer" }}
+            title="Admin Dashboard"
+          >
+            <span>
+              {adminName.charAt(0).toUpperCase()}
+            </span>
+            <div>
+              <strong>{adminName}</strong>
+              <small>Administrator</small>
+            </div>
+          </Link>
         </header>
 
+        {/* College Information */}
+        <p
+          style={{
+            color: "var(--cf-muted)",
+            fontSize: "13px",
+            margin: "0 0 16px",
+          }}
+        >
+          🏛️ {collegeName}
+        </p>
+
+        {/* Error */}
         {error && (
+          <div className="notification-error" style={{ marginBottom: "16px" }}>
+            ⚠️ {error}
+            {authExpired ? (
+              <Link
+                to="/login"
+                style={{ marginLeft: "12px", color: "#60a5fa" }}
+              >
+                Sign In Again
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={fetchNotifications}
+                style={{ marginLeft: "12px", cursor: "pointer" }}
+              >
+                Retry
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Notification Summary */}
+        <section className="stats-grid">
+          <div className="stat-card">
+            <span className="stat-icon">🔔</span>
+            <div>
+              <h3>{notifications.length}</h3>
+              <p>Total Notifications</p>
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <span className="stat-icon">📩</span>
+            <div>
+              <h3>{unreadCount}</h3>
+              <p>Unread Notifications</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Recent Notifications */}
+        <section className="admin-ticket-section">
           <div
-            className="notification-error"
+            className="ticket-filter-bar"
             style={{
-              margin: "16px 0",
-              padding: "14px 18px",
-              background: "rgba(239, 68, 68, 0.15)",
-              border: "1px solid #ef4444",
-              borderRadius: "10px",
-              color: "#fca5a5",
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              flexWrap: "wrap",
               gap: "12px",
+              flexWrap: "wrap",
             }}
           >
-            <span>⚠️ {error}</span>
-            <div style={{ display: "flex", gap: "10px" }}>
-              {authExpired ? (
-                <Link
-                  to="/login"
-                  className="onboard-btn"
-                  style={{
-                    padding: "6px 14px",
-                    fontSize: "12px",
-                    textDecoration: "none",
-                    background: "var(--cf-lime)",
-                    color: "#000",
-                    fontWeight: "bold",
-                  }}
-                >
-                  Sign In Again 🚀
-                </Link>
-              ) : (
-                <button
-                  onClick={fetchNotifications}
-                  style={{
-                    background: "rgba(255, 255, 255, 0.1)",
-                    border: "1px solid rgba(255, 255, 255, 0.2)",
-                    color: "#ffffff",
-                    padding: "6px 12px",
-                    borderRadius: "6px",
-                    fontSize: "12px",
-                    cursor: "pointer",
-                  }}
-                >
-                  🔄 Retry Connection
-                </button>
-              )}
+            <div>
+              <h2>Recent Notifications</h2>
+              <p>Stay updated with ticket assignments and changes.</p>
             </div>
-          </div>
-        )}
 
-        <div style={{ margin: "20px 0", color: "var(--cf-muted)", fontSize: "14px" }}>
-          You have <strong style={{ color: "var(--cf-lime)" }}>{unreadCount}</strong> unread alert(s)
-        </div>
-
-        {loading ? (
-          <div style={{ padding: "40px", textAlign: "center", color: "var(--cf-muted)" }}>
-            Loading alerts...
-          </div>
-        ) : notifications.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "40px", background: "var(--cf-card)", borderRadius: "14px", border: "1px dashed var(--cf-border)" }}>
-            <span style={{ fontSize: "36px" }}>🔔</span>
-            <h3 style={{ color: "#ffffff", margin: "10px 0" }}>No Notifications</h3>
-            <p style={{ color: "var(--cf-muted)", fontSize: "14px" }}>Everything is running smoothly on campus!</p>
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            {notifications.map((notif) => (
-              <div
-                key={notif.id}
-                style={{
-                  background: notif.is_read ? "var(--cf-card)" : "rgba(163, 230, 53, 0.08)",
-                  border: `1px solid ${notif.is_read ? "var(--cf-border)" : "var(--cf-lime)"}`,
-                  borderRadius: "12px",
-                  padding: "16px 20px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  transition: "all 0.2s",
-                }}
+            {unreadCount > 0 && (
+              <button
+                type="button"
+                className="notification-read-btn"
+                onClick={markAllAsRead}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-                  <span style={{ fontSize: "24px" }}>{getIcon(notif.type)}</span>
-                  <div>
-                    <strong style={{ color: "#ffffff", fontSize: "15px" }}>{notif.title}</strong>
-                    <p style={{ color: "var(--cf-muted)", margin: "4px 0 0 0", fontSize: "13.5px" }}>
-                      {notif.message}
-                    </p>
-                    <small style={{ color: "#94a3b8", display: "block", marginTop: "4px", fontSize: "11px" }}>
-                      {notif.created_at ? new Date(notif.created_at).toLocaleString() : "Recently"}
-                    </small>
-                  </div>
-                </div>
-
-                {!notif.is_read && (
-                  <button
-                    onClick={() => markAsRead(notif.id)}
-                    style={{
-                      background: "rgba(163, 230, 53, 0.15)",
-                      border: "1px solid var(--cf-lime)",
-                      color: "var(--cf-lime)",
-                      padding: "6px 12px",
-                      borderRadius: "6px",
-                      fontSize: "12px",
-                      cursor: "pointer",
-                      fontWeight: "600",
-                    }}
-                  >
-                    Mark Read
-                  </button>
-                )}
-              </div>
-            ))}
+                Mark all as read
+              </button>
+            )}
           </div>
-        )}
+
+          {loading && (
+            <div className="notification-empty">
+              Loading notifications...
+            </div>
+          )}
+
+          {!loading && !error && notifications.length === 0 && (
+            <div className="notification-empty">
+              <div className="notification-empty-icon">🔔</div>
+              <h3>No Notifications</h3>
+              <p>You don't have any notifications yet.</p>
+            </div>
+          )}
+
+          {!loading && notifications.length > 0 && (
+            <div className="technician-notification-list">
+              {notifications.map((notification) => {
+                const unread = isUnread(notification);
+
+                return (
+                  <div
+                    key={notification.id}
+                    className={
+                      unread
+                        ? "technician-notification unread"
+                        : "technician-notification"
+                    }
+                  >
+                    <div className="notification-icon">
+                      {getIcon(notification.type)}
+                    </div>
+
+                    <div className="notification-content">
+                      <h3>
+                        {notification.title || "CampusFix Pro Notification"}
+                      </h3>
+
+                      <p>{notification.message}</p>
+
+                      {notification.ticket_number && (
+                        <span className="notification-ticket">
+                          Ticket #{notification.ticket_number}
+                        </span>
+                      )}
+
+                      <small>
+                        {notification.created_at
+                          ? new Date(notification.created_at).toLocaleString(
+                              "en-IN",
+                              {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            )
+                          : "Recently"}
+                      </small>
+                    </div>
+
+                    {unread && (
+                      <button
+                        type="button"
+                        className="notification-read-btn"
+                        onClick={() => markAsRead(notification.id)}
+                      >
+                        Mark as read
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
       </main>
     </div>
   );
