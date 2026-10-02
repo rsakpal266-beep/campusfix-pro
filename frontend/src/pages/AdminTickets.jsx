@@ -490,7 +490,14 @@ function AdminTickets() {
                         {/* User */}
 
                         <td>
-                          {ticket.user_name || "Unknown User"}
+                          <div>
+                            <span style={{ color: "#ffffff" }}>{ticket.user_name || "Unknown User"}</span>
+                            {ticket.user_phone && (
+                              <small style={{ display: "block", color: "var(--cf-muted)", fontSize: "11px" }}>
+                                📞 {ticket.user_phone}
+                              </small>
+                            )}
+                          </div>
                         </td>
 
                         {/* Issue */}
@@ -745,9 +752,16 @@ function AdminTickets() {
 
                 <div className="ticket-detail-item">
                   <span>User</span>
-                  <strong>
-                    {viewTicket.user_name || "Unknown User"}
-                  </strong>
+                  <div>
+                    <strong style={{ display: "block" }}>
+                      {viewTicket.user_name || "Unknown User"}
+                    </strong>
+                    {viewTicket.user_phone && (
+                      <small style={{ color: "var(--cf-muted)", fontSize: "12px" }}>
+                        📞 {viewTicket.user_phone}
+                      </small>
+                    )}
+                  </div>
                 </div>
 
                 <div className="ticket-detail-item">

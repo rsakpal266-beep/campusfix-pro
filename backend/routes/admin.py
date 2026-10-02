@@ -158,6 +158,7 @@ def get_all_tickets_admin(
                 "user_id": t.user_id,
                 "user_name": t.creator.full_name if t.creator else "Unknown",
                 "user_email": t.creator.email if t.creator else "",
+                "user_phone": t.creator.phone if t.creator else "",
                 "user_role": t.creator.role if t.creator else "student",
                 "category_id": t.category_id,
                 "category": t.category.name if t.category else "General",

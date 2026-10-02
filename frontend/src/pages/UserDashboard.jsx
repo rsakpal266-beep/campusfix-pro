@@ -9,15 +9,17 @@ function UserDashboard() {
   const [error, setError] = useState("");
 
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
-  const userName = storedUser.full_name || "Campus Member";
-  const userRole = storedUser.role || "student";
-  const userDept = storedUser.department || "";
+  const [currentUser, setCurrentUser] = useState(storedUser);
+  const userName = currentUser.full_name || currentUser.name || "Campus Member";
+  const userRole = currentUser.role || "student";
+  const userDept = currentUser.department || "";
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
+
     const fetchMyTickets = async () => {
       try {
         setLoading(true);
-        const token = localStorage.getItem("token");
         if (!token) return;
 
         const response = await fetch(`${API_BASE_URL}/api/tickets/my`, {
@@ -40,7 +42,28 @@ function UserDashboard() {
       }
     };
 
+    const fetchUserProfile = async () => {
+      if (!token) return;
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/profile`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.user) {
+            setCurrentUser(data.user);
+            localStorage.setItem("user", JSON.stringify({ ...storedUser, ...data.user }));
+          }
+        }
+      } catch (e) {
+        // silent fallback
+      }
+    };
+
     fetchMyTickets();
+    fetchUserProfile();
   }, []);
 
   // Compute live statistics dynamically from user's actual tickets
@@ -79,13 +102,23 @@ function UserDashboard() {
         {/* HEADER */}
         <div className="dashboard-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px", flexWrap: "wrap" }}>
               <span className={`role-badge ${userRole}`} style={{ textTransform: "capitalize" }}>
                 {userRole === "faculty" ? "👩‍🏫 Faculty Member" : "🎓 Student"}
               </span>
               {userDept && (
                 <span style={{ color: "var(--cf-muted)", fontSize: "13px" }}>
-                  • {userDept}
+                  • 🏛️ {userDept}
+                </span>
+              )}
+              {currentUser.phone && (
+                <span style={{ color: "var(--cf-muted)", fontSize: "13px" }}>
+                  • 📞 {currentUser.phone}
+                </span>
+              )}
+              {currentUser.student_or_emp_id && (
+                <span style={{ color: "var(--cf-muted)", fontSize: "13px" }}>
+                  • 🆔 {currentUser.student_or_emp_id}
                 </span>
               )}
             </div>

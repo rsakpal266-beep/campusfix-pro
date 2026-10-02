@@ -74,6 +74,7 @@ class ProfileUpdateRequest(BaseModel):
     phone: Optional[str] = None
     department: Optional[str] = None
     specialization: Optional[str] = None
+    student_or_emp_id: Optional[str] = None
 
 
 class ForgotPasswordRequest(BaseModel):

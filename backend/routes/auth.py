@@ -241,6 +241,8 @@ def update_profile(
         current_user.department = payload.department.strip()
     if payload.specialization is not None:
         current_user.specialization = payload.specialization.strip()
+    if payload.student_or_emp_id is not None:
+        current_user.student_or_emp_id = payload.student_or_emp_id.strip()
 
     db.commit()
     db.refresh(current_user)
@@ -256,6 +258,8 @@ def update_profile(
             "department": current_user.department,
             "specialization": current_user.specialization,
             "phone": current_user.phone,
+            "student_or_emp_id": current_user.student_or_emp_id,
+            "college_name": current_user.college_name or "Campus",
         },
     }
 

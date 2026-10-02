@@ -394,6 +394,12 @@ const saveResolution = async () => {
                   {ticket.user_email}
                 </span>
 
+                {ticket.user_phone && (
+                  <span style={{ display: "block", color: "var(--cf-lime)", fontSize: "12px", marginTop: "3px" }}>
+                    📞 {ticket.user_phone}
+                  </span>
+                )}
+
               </div>
 
             </div>
