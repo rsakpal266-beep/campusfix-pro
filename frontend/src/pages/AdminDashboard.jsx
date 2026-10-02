@@ -257,56 +257,19 @@ function AdminDashboard() {
           </section>
 
           {/* CATEGORY WORKLOAD DISTRIBUTION */}
-          <section style={{ background: "var(--cf-card)", padding: "24px", borderRadius: "16px", border: "1px solid var(--cf-border)" }}>
-            <h2 style={{ color: "#ffffff", margin: "0 0 4px 0", fontSize: "18px" }}>Category Workload</h2>
-            <p style={{ color: "var(--cf-muted)", fontSize: "13px", margin: "0 0 18px 0" }}>Live complaint volume by category</p>
-
-            {categoryDistribution.length === 0 ? (
-              <p style={{ color: "var(--cf-muted)" }}>No category statistics available.</p>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                {categoryDistribution.map((cat, idx) => {
-                  const pct = Math.round(((cat.count || 0) / totalCatSum) * 100);
-                  return (
-                    <div key={idx}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px", fontSize: "13px" }}>
-                        <span style={{ color: "#ffffff", fontWeight: "500" }}>{cat.name}</span>
-                        <span style={{ color: "var(--cf-lime)", fontWeight: "700" }}>
-                          {cat.count} ({pct}%)
-                        </span>
-                      </div>
-                      <div style={{ width: "100%", height: "8px", background: "rgba(255, 255, 255, 0.08)", borderRadius: "4px", overflow: "hidden" }}>
-                        <div
-                          style={{
-                            width: `${pct}%`,
-                            height: "100%",
-                            background: "linear-gradient(90deg, #1d4ed8, #60a5fa)",
-                            borderRadius: "4px",
-                          }}
-                        ></div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            <div style={{ marginTop: "24px", paddingTop: "18px", borderTop: "1px solid var(--cf-border)" }}>
-              <Link
-                to="/categories"
-                style={{
-                  color: "var(--cf-lime)",
-                  textDecoration: "none",
-                  fontSize: "13px",
-                  fontWeight: "600",
-                  display: "block",
-                  textAlign: "center",
-                }}
-              >
-                ⚙️ Manage Categories & SLA Limits →
-              </Link>
-            </div>
-          </section>
+          <section
+  className="category-workload-card"
+  style={{
+    background: "var(--cf-card)",
+    padding: "24px",
+    borderRadius: "16px",
+    border: "1px solid var(--cf-border)",
+    width: "100%",
+    minWidth: 0,
+    maxWidth: "100%",
+    boxSizing: "border-box",
+  }}
+>
         </div>
       </main>
     </div>
