@@ -343,7 +343,7 @@ function AdminTechnicians() {
                   <label style={{ display: "block", marginBottom: "6px", fontSize: "13px", color: "var(--cf-muted)" }}>Full Name *</label>
                   <input
                     type="text"
-                    placeholder="e.g. Rahul Patil"
+                    placeholder="e.g. Hari Kumar"
                     value={formData.full_name}
                     onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                     required
@@ -355,7 +355,7 @@ function AdminTechnicians() {
                   <label style={{ display: "block", marginBottom: "6px", fontSize: "13px", color: "var(--cf-muted)" }}>Login Email *</label>
                   <input
                     type="email"
-                    placeholder="e.g. rahul.tech@college.edu"
+                    placeholder="e.g. hari.tech@college.edu"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     required

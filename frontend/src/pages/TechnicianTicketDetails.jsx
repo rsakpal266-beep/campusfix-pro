@@ -18,8 +18,9 @@ function TechnicianTicketDetails() {
 
   const token = localStorage.getItem("token");
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const [currentUser, setCurrentUser] = useState(storedUser);
 
-  const technicianName = storedUser.full_name || "Technician";
+  const technicianName = currentUser.full_name || currentUser.name || "Technician";
 
   // ============================================================
   // LOAD TICKET DETAILS
@@ -64,6 +65,27 @@ function TechnicianTicketDetails() {
     }
 
     loadTicket();
+
+    const fetchProfile = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/profile`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.user) {
+            setCurrentUser(data.user);
+            localStorage.setItem("user", JSON.stringify({ ...storedUser, ...data.user }));
+          }
+        }
+      } catch (e) {
+        // Fallback silently
+      }
+    };
+
+    fetchProfile();
   }, [ticketId]);
 
   // ============================================================
@@ -208,8 +230,12 @@ const saveResolution = async () => {
             </p>
           </div>
 
-          <div className="admin-profile">
-
+          <Link
+            to="/technician-profile"
+            className="admin-profile"
+            style={{ textDecoration: "none", cursor: "pointer" }}
+            title="View Profile"
+          >
             <span>
               {technicianName.charAt(0).toUpperCase()}
             </span>
@@ -218,8 +244,7 @@ const saveResolution = async () => {
               <strong>{technicianName}</strong>
               <small>Technician</small>
             </div>
-
-          </div>
+          </Link>
 
         </header>
 

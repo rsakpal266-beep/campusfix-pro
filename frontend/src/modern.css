@@ -4788,14 +4788,20 @@ button:hover {
 }
 
 .profile-field label {
-  color: #a7abc4 !important;
+  color: #94a3b8 !important;
 }
 
 .profile-field p,
 .security-row {
-  background: #141635 !important;
-  border: 1px solid #2d2e54 !important;
+  background: #0f1c3f !important;
+  border: 1px solid #1e3264 !important;
   color: #ffffff !important;
+}
+
+.technician-profile-avatar {
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.28) 0%, rgba(29, 78, 216, 0.16) 100%) !important;
+  border: 2px solid rgba(59, 130, 246, 0.4) !important;
+  color: #60a5fa !important;
 }
 
 .security-row strong {
@@ -4807,14 +4813,14 @@ button:hover {
 }
 
 .profile-field input {
-  background: #141635 !important;
-  border: 1px solid #2d2e54 !important;
+  background: #09132b !important;
+  border: 1px solid #1e3264 !important;
   color: #ffffff !important;
 }
 
 .profile-field input:focus {
-  border-color: #7c5cff !important;
-  box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.18) !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22) !important;
 }
 
 /* =========================================================
