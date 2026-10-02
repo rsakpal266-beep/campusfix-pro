@@ -274,7 +274,7 @@ function AdminDashboard() {
                           style={{
                             width: `${pct}%`,
                             height: "100%",
-                            background: "linear-gradient(90deg, #16a34a, #a3e635)",
+                            background: "linear-gradient(90deg, #1d4ed8, #60a5fa)",
                             borderRadius: "4px",
                           }}
                         ></div>

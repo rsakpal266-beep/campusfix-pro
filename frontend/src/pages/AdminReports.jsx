@@ -162,7 +162,7 @@ function AdminReports() {
                               style={{
                                 width: `${Math.max(barWidth, 6)}%`,
                                 height: "100%",
-                                background: "linear-gradient(90deg, #15803d, #a3e635)",
+                                background: "linear-gradient(90deg, #1d4ed8, #60a5fa)",
                                 borderRadius: "5px",
                               }}
                             ></div>

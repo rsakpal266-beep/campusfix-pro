@@ -1,38 +1,44 @@
 /* =====================================================
-   CAMPUSFIX PRO — DARK GREEN & LIME GREEN THEME
+   CAMPUSFIX PRO — DARK BLUE & BLUE THEME
    ===================================================== */
 
 :root {
-  --cf-bg: #06140c;
-  --cf-bg-soft: #0b2216;
-  --cf-card: rgba(12, 35, 22, 0.88);
-  --cf-card-solid: #0d281a;
-  --cf-border: rgba(74, 222, 128, 0.22);
-  --cf-border-glow: rgba(163, 230, 53, 0.45);
+  --cf-bg: #060b18;
+  --cf-bg-soft: #0a1329;
+  --cf-card: rgba(13, 26, 56, 0.88);
+  --cf-card-solid: #0d1a38;
+  --cf-border: rgba(59, 130, 246, 0.24);
+  --cf-border-glow: rgba(96, 165, 250, 0.55);
 
-  --cf-lime: #a3e635;
-  --cf-lime-hover: #bef264;
-  --cf-lime-dark: #65a30d;
-  --cf-green: #22c55e;
-  --cf-green-emerald: #10b981;
-  --cf-green-dark: #14532d;
+  --cf-blue-primary: #3b82f6;
+  --cf-blue-light: #60a5fa;
+  --cf-blue-hover: #93c5fd;
+  --cf-blue-dark: #1d4ed8;
+  --cf-cyan: #38bdf8;
 
-  /* Aliases to override older color names */
-  --cf-purple: #22c55e;
-  --cf-purple-light: #a3e635;
-  --cf-blue: #84cc16;
+  /* Aliases to map all existing variables to the blue theme */
+  --cf-lime: #60a5fa;
+  --cf-lime-hover: #93c5fd;
+  --cf-lime-dark: #2563eb;
+  --cf-green: #3b82f6;
+  --cf-green-emerald: #38bdf8;
+  --cf-green-dark: #1e40af;
 
-  --cf-text: #f0fdf4;
-  --cf-muted: #86efac;
-  --cf-muted-dark: #4b6b55;
+  --cf-purple: #2563eb;
+  --cf-purple-light: #60a5fa;
+  --cf-blue: #38bdf8;
 
-  --cf-success: #4ade80;
+  --cf-text: #f0f6ff;
+  --cf-muted: #93c5fd;
+  --cf-muted-dark: #64748b;
+
+  --cf-success: #38bdf8;
   --cf-warning: #facc15;
   --cf-danger: #f87171;
 
   --cf-radius: 16px;
-  --cf-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
-  --cf-glow: 0 0 25px rgba(163, 230, 53, 0.28);
+  --cf-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+  --cf-glow: 0 0 25px rgba(59, 130, 246, 0.35);
 }
 
 /* =========================
@@ -43,12 +49,12 @@ body {
   background:
     radial-gradient(
       circle at 15% 10%,
-      rgba(34, 197, 94, 0.16),
+      rgba(37, 99, 235, 0.16),
       transparent 30%
     ),
     radial-gradient(
       circle at 85% 20%,
-      rgba(163, 230, 53, 0.14),
+      rgba(59, 130, 246, 0.14),
       transparent 28%
     ),
     var(--cf-bg) !important;
@@ -59,7 +65,7 @@ body {
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--cf-lime) var(--cf-bg-soft);
+  scrollbar-color: var(--cf-blue-primary) var(--cf-bg-soft);
 }
 
 /* =========================
@@ -67,7 +73,7 @@ body {
    ========================= */
 
 .navbar {
-  background: rgba(6, 20, 12, 0.88) !important;
+  background: rgba(6, 11, 24, 0.88) !important;
   border-bottom: 1px solid var(--cf-border) !important;
   backdrop-filter: blur(18px);
 }
@@ -77,8 +83,8 @@ body {
 }
 
 .logo span {
-  color: var(--cf-lime) !important;
-  text-shadow: 0 0 12px rgba(163, 230, 53, 0.4);
+  color: var(--cf-blue-light) !important;
+  text-shadow: 0 0 14px rgba(59, 130, 246, 0.5);
 }
 
 .nav-links a {
@@ -87,23 +93,24 @@ body {
 }
 
 .nav-links a:hover {
-  color: var(--cf-lime) !important;
+  color: var(--cf-blue-light) !important;
 }
 
 .login-btn,
 .portal-btn {
-  background: rgba(163, 230, 53, 0.08) !important;
+  background: rgba(59, 130, 246, 0.1) !important;
   border: 1px solid var(--cf-border) !important;
-  color: var(--cf-lime) !important;
+  color: var(--cf-blue-light) !important;
   font-weight: 600 !important;
   transition: 0.25s ease;
 }
 
 .login-btn:hover,
 .portal-btn:hover {
-  background: rgba(163, 230, 53, 0.18) !important;
-  border-color: var(--cf-lime) !important;
-  box-shadow: 0 0 15px rgba(163, 230, 53, 0.25);
+  background: rgba(59, 130, 246, 0.22) !important;
+  border-color: var(--cf-blue-light) !important;
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.35);
+  color: #ffffff !important;
 }
 
 .register-btn,
@@ -111,15 +118,15 @@ body {
 .auth-button {
   background: linear-gradient(
     135deg,
-    #15803d,
-    #84cc16
+    #1d4ed8,
+    #3b82f6
   ) !important;
 
   border: none !important;
-  color: #03140a !important;
+  color: #ffffff !important;
   font-weight: 700 !important;
 
-  box-shadow: 0 8px 25px rgba(132, 204, 22, 0.3);
+  box-shadow: 0 8px 25px rgba(37, 99, 235, 0.35);
   transition: 0.25s ease;
 }
 
@@ -127,7 +134,8 @@ body {
 .report-btn:hover,
 .auth-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 30px rgba(163, 230, 53, 0.45) !important;
+  background: linear-gradient(135deg, #2563eb, #60a5fa) !important;
+  box-shadow: 0 10px 30px rgba(59, 130, 246, 0.5) !important;
 }
 
 /* =========================
@@ -1856,9 +1864,10 @@ button:hover {
 /* My Tickets Summary Cards */
 
 .ticket-summary-card {
-  background: rgba(18, 21, 48, 0.82) !important;
-  border: 1px solid rgba(139, 92, 246, 0.22) !important;
-  border-radius: 12px !important;
+  background: var(--cf-card) !important;
+  border: 1px solid var(--cf-border) !important;
+  border-radius: var(--cf-radius) !important;
+  box-shadow: var(--cf-shadow) !important;
   color: #ffffff !important;
 }
 
@@ -1867,7 +1876,7 @@ button:hover {
 }
 
 .ticket-summary-card p {
-  color: #a7abc4 !important;
+  color: var(--cf-muted) !important;
 }
 /* =========================================
    TICKET DETAILS
@@ -2051,7 +2060,8 @@ button:hover {
 /* Admin profile */
 
 .admin-profile {
-  background: #ffffff !important;
+  background: var(--cf-card) !important;
+  border: 1px solid var(--cf-border) !important;
   border-radius: 12px !important;
   padding: 10px 16px !important;
   display: flex !important;
@@ -2060,11 +2070,11 @@ button:hover {
 }
 
 .admin-profile strong {
-  color: #172033 !important;
+  color: #ffffff !important;
 }
 
 .admin-profile small {
-  color: #7b8196 !important;
+  color: var(--cf-muted) !important;
 }
 
 
@@ -5782,30 +5792,30 @@ button:hover {
 }
 
 /* =====================================================
-   DARK GREEN & LIME GREEN EXTENSIONS FOR CAMPUSFIX PRO
+   CAMPUSFIX PRO — DARK BLUE & BLUE THEME EXTENSIONS
    ===================================================== */
 
 /* Sidebar Overhauls */
 .dashboard-sidebar {
-  background: linear-gradient(180deg, #07170f 0%, #05100a 100%) !important;
+  background: linear-gradient(180deg, #070e20 0%, #050a16 100%) !important;
   border-right: 1px solid var(--cf-border) !important;
 }
 
 .dashboard-nav a.active,
 .sidebar-link.active,
 .sidebar-nav a.active {
-  background: rgba(163, 230, 53, 0.12) !important;
-  color: var(--cf-lime) !important;
-  border-left: 4px solid var(--cf-lime) !important;
+  background: rgba(59, 130, 246, 0.14) !important;
+  color: #60a5fa !important;
+  border-left: 4px solid #3b82f6 !important;
   font-weight: 700 !important;
-  text-shadow: 0 0 12px rgba(163, 230, 53, 0.3) !important;
+  text-shadow: 0 0 12px rgba(59, 130, 246, 0.35) !important;
 }
 
 .dashboard-nav a:hover,
 .sidebar-link:hover,
 .sidebar-nav a:hover {
-  background: rgba(163, 230, 53, 0.08) !important;
-  color: var(--cf-lime) !important;
+  background: rgba(59, 130, 246, 0.08) !important;
+  color: #93c5fd !important;
 }
 
 /* Stat Cards & KPI Cards */
@@ -5815,21 +5825,21 @@ button:hover {
   background: var(--cf-card) !important;
   border: 1px solid var(--cf-border) !important;
   border-radius: 16px !important;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4) !important;
   transition: all 0.25s ease !important;
 }
 
 .stat-card:hover,
 .quick-card:hover {
   transform: translateY(-4px) !important;
-  border-color: var(--cf-lime) !important;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.45), 0 0 20px rgba(163, 230, 53, 0.2) !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5), 0 0 20px rgba(59, 130, 246, 0.25) !important;
 }
 
 .stat-card h3 {
-  color: var(--cf-lime) !important;
+  color: #60a5fa !important;
   font-weight: 800 !important;
-  text-shadow: 0 0 10px rgba(163, 230, 53, 0.25) !important;
+  text-shadow: 0 0 12px rgba(59, 130, 246, 0.3) !important;
 }
 
 /* Buttons */
@@ -5837,13 +5847,13 @@ button:hover {
 .onboard-btn,
 .dashboard-report-btn,
 .view-all-btn {
-  background: linear-gradient(135deg, #16a34a, #84cc16) !important;
-  color: #03140a !important;
+  background: linear-gradient(135deg, #1d4ed8, #3b82f6) !important;
+  color: #ffffff !important;
   border: none !important;
   font-weight: 700 !important;
   border-radius: 10px !important;
   cursor: pointer !important;
-  box-shadow: 0 4px 15px rgba(132, 204, 22, 0.3) !important;
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.35) !important;
   transition: all 0.2s ease !important;
 }
 
@@ -5852,15 +5862,16 @@ button:hover {
 .dashboard-report-btn:hover,
 .view-all-btn:hover {
   transform: translateY(-2px) !important;
-  box-shadow: 0 8px 25px rgba(163, 230, 53, 0.45) !important;
-  color: #020b05 !important;
+  background: linear-gradient(135deg, #2563eb, #60a5fa) !important;
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.5) !important;
+  color: #ffffff !important;
 }
 
 /* Credentials Sharing Card & Modal */
 .credentials-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(3, 10, 6, 0.85);
+  background: rgba(2, 6, 16, 0.88);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
@@ -5870,9 +5881,9 @@ button:hover {
 }
 
 .credentials-modal {
-  background: #091e13;
-  border: 1px solid var(--cf-lime);
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), 0 0 30px rgba(163, 230, 53, 0.25);
+  background: #0a142c;
+  border: 1px solid #3b82f6;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(59, 130, 246, 0.3);
   border-radius: 20px;
   width: 100%;
   max-width: 540px;
@@ -5887,8 +5898,8 @@ button:hover {
 }
 
 .credentials-card-box {
-  background: #05120a;
-  border: 1px dashed rgba(163, 230, 53, 0.5);
+  background: #060d1d;
+  border: 1px dashed rgba(59, 130, 246, 0.5);
   border-radius: 12px;
   padding: 18px;
   margin: 20px 0;
@@ -5899,7 +5910,7 @@ button:hover {
   justify-content: space-between;
   align-items: center;
   padding: 8px 0;
-  border-bottom: 1px solid rgba(74, 222, 128, 0.12);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.15);
 }
 
 .cred-row:last-child {
@@ -5917,10 +5928,10 @@ button:hover {
   font-family: monospace;
   font-size: 14px;
   font-weight: 700;
-  background: rgba(163, 230, 53, 0.1);
+  background: rgba(59, 130, 246, 0.15);
   padding: 4px 10px;
   border-radius: 6px;
-  border: 1px solid rgba(163, 230, 53, 0.25);
+  border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
 .cred-share-actions {
@@ -5932,8 +5943,8 @@ button:hover {
 
 .share-btn-copy {
   grid-column: span 2;
-  background: linear-gradient(135deg, #16a34a, #84cc16) !important;
-  color: #03140a !important;
+  background: linear-gradient(135deg, #1d4ed8, #3b82f6) !important;
+  color: #ffffff !important;
   font-weight: 800 !important;
   font-size: 15px !important;
   padding: 12px !important;
@@ -5944,11 +5955,14 @@ button:hover {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 4px 15px rgba(132, 204, 22, 0.3);
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.35);
+  transition: all 0.2s ease !important;
 }
 
 .share-btn-copy:hover {
-  box-shadow: 0 6px 25px rgba(163, 230, 53, 0.45);
+  background: linear-gradient(135deg, #2563eb, #60a5fa) !important;
+  box-shadow: 0 6px 25px rgba(59, 130, 246, 0.5);
+  transform: translateY(-1px);
 }
 
 .share-btn-email,
@@ -5970,69 +5984,74 @@ button:hover {
 
 .share-btn-email:hover,
 .share-btn-wa:hover {
-  border-color: var(--cf-lime);
-  background: rgba(163, 230, 53, 0.12);
-  color: var(--cf-lime);
+  border-color: #60a5fa;
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
 }
 
 /* FixBot Real AI Chat Styling */
 .fixbot-container {
-  background: #081d12 !important;
+  background: #081124 !important;
   border: 1px solid var(--cf-border) !important;
   box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5) !important;
 }
 
 .fixbot-chat-header {
-  background: rgba(10, 32, 20, 0.95) !important;
+  background: rgba(10, 20, 44, 0.95) !important;
   border-bottom: 1px solid var(--cf-border) !important;
 }
 
 .fixbot-avatar {
-  background: linear-gradient(135deg, #16a34a, #84cc16) !important;
-  box-shadow: 0 0 15px rgba(163, 230, 53, 0.4) !important;
-  color: #03140a !important;
+  background: linear-gradient(135deg, #1d4ed8, #3b82f6) !important;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.45) !important;
+  color: #ffffff !important;
 }
 
 .bot-message .message-bubble {
-  background: #0d2a1b !important;
-  border: 1px solid rgba(74, 222, 128, 0.25) !important;
-  color: #f0fdf4 !important;
+  background: #0d1a38 !important;
+  border: 1px solid rgba(59, 130, 246, 0.25) !important;
+  color: #f0f6ff !important;
 }
 
 .user-message .message-bubble {
-  background: linear-gradient(135deg, #15803d, #166534) !important;
+  background: linear-gradient(135deg, #1d4ed8, #2563eb) !important;
   color: #ffffff !important;
-  border: 1px solid rgba(163, 230, 53, 0.3) !important;
+  border: 1px solid rgba(96, 165, 250, 0.3) !important;
 }
 
 .suggested-questions button {
-  background: rgba(163, 230, 53, 0.08) !important;
-  border: 1px solid rgba(74, 222, 128, 0.25) !important;
-  color: var(--cf-lime) !important;
+  background: rgba(59, 130, 246, 0.1) !important;
+  border: 1px solid rgba(59, 130, 246, 0.25) !important;
+  color: #93c5fd !important;
   font-size: 13px !important;
   transition: all 0.2s !important;
 }
 
 .suggested-questions button:hover {
-  background: rgba(163, 230, 53, 0.2) !important;
-  border-color: var(--cf-lime) !important;
+  background: rgba(59, 130, 246, 0.22) !important;
+  border-color: #60a5fa !important;
+  color: #ffffff !important;
 }
 
 .chat-input-area input {
-  background: #05120a !important;
+  background: #060d1d !important;
   border: 1px solid var(--cf-border) !important;
   color: #ffffff !important;
 }
 
 .chat-input-area input:focus {
-  border-color: var(--cf-lime) !important;
-  box-shadow: 0 0 12px rgba(163, 230, 53, 0.25) !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.3) !important;
 }
 
 .send-message-btn {
-  background: linear-gradient(135deg, #16a34a, #84cc16) !important;
-  color: #03140a !important;
+  background: linear-gradient(135deg, #1d4ed8, #3b82f6) !important;
+  color: #ffffff !important;
   font-weight: 800 !important;
+}
+
+.send-message-btn:hover {
+  background: linear-gradient(135deg, #2563eb, #60a5fa) !important;
 }
 
 /* Status Badges */
@@ -6046,17 +6065,17 @@ button:hover {
 .status.in-progress,
 .status.progress,
 .status-progress {
-  background: rgba(163, 230, 53, 0.15) !important;
-  color: #a3e635 !important;
-  border: 1px solid rgba(163, 230, 53, 0.45) !important;
-  box-shadow: 0 0 10px rgba(163, 230, 53, 0.2) !important;
+  background: rgba(59, 130, 246, 0.15) !important;
+  color: #60a5fa !important;
+  border: 1px solid rgba(59, 130, 246, 0.45) !important;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.25) !important;
 }
 
 .status.resolved,
 .status-resolved {
-  background: rgba(34, 197, 94, 0.15) !important;
-  color: #4ade80 !important;
-  border: 1px solid rgba(34, 197, 94, 0.45) !important;
+  background: rgba(56, 189, 248, 0.15) !important;
+  color: #38bdf8 !important;
+  border: 1px solid rgba(56, 189, 248, 0.45) !important;
 }
 
 .priority-high,
@@ -6074,8 +6093,8 @@ button:hover {
 
 .priority-low,
 .priority.low {
-  background: rgba(163, 230, 53, 0.12) !important;
-  color: #a3e635 !important;
+  background: rgba(59, 130, 246, 0.12) !important;
+  color: #93c5fd !important;
 }
 
 /* Role Badges */
@@ -6086,29 +6105,29 @@ button:hover {
 }
 
 .role-badge.technician {
-  background: rgba(163, 230, 53, 0.15);
-  color: #a3e635;
-  border: 1px solid rgba(163, 230, 53, 0.4);
-}
-
-.role-badge.faculty {
   background: rgba(56, 189, 248, 0.15);
   color: #38bdf8;
   border: 1px solid rgba(56, 189, 248, 0.4);
 }
 
+.role-badge.faculty {
+  background: rgba(147, 197, 253, 0.15);
+  color: #93c5fd;
+  border: 1px solid rgba(147, 197, 253, 0.4);
+}
+
 .role-badge.student {
-  background: rgba(74, 222, 128, 0.15);
-  color: #4ade80;
-  border: 1px solid rgba(74, 222, 128, 0.4);
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.4);
 }
 
 /* ============================================================
    ADMIN MODAL & CATEGORY MANAGEMENT STYLES
    ============================================================ */
 .admin-primary-btn {
-  background: linear-gradient(135deg, #16a34a, #84cc16) !important;
-  color: #020b05 !important;
+  background: linear-gradient(135deg, #1d4ed8, #3b82f6) !important;
+  color: #ffffff !important;
   border: none !important;
   padding: 10px 20px !important;
   border-radius: 10px !important;
@@ -6120,13 +6139,14 @@ button:hover {
   justify-content: center !important;
   gap: 8px !important;
   transition: all 0.25s ease !important;
-  box-shadow: 0 4px 15px rgba(132, 204, 22, 0.25) !important;
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.35) !important;
 }
 
 .admin-primary-btn:hover {
   transform: translateY(-2px) !important;
-  box-shadow: 0 6px 22px rgba(163, 230, 53, 0.45) !important;
-  color: #020b05 !important;
+  background: linear-gradient(135deg, #2563eb, #60a5fa) !important;
+  box-shadow: 0 6px 22px rgba(59, 130, 246, 0.5) !important;
+  color: #ffffff !important;
 }
 
 .admin-secondary-btn {
@@ -6145,14 +6165,15 @@ button:hover {
 }
 
 .admin-secondary-btn:hover {
-  background: rgba(255, 255, 255, 0.15) !important;
+  background: rgba(59, 130, 246, 0.2) !important;
+  border-color: #60a5fa !important;
   color: #ffffff !important;
 }
 
 .admin-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(2, 8, 4, 0.85);
+  background: rgba(2, 6, 16, 0.88);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
@@ -6162,9 +6183,9 @@ button:hover {
 }
 
 .admin-modal {
-  background: #091e13;
-  border: 1px solid var(--cf-lime);
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.75), 0 0 35px rgba(163, 230, 53, 0.2);
+  background: #0a142c;
+  border: 1px solid #3b82f6;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 35px rgba(59, 130, 246, 0.25);
   border-radius: 18px;
   width: 100%;
   max-width: 520px;
@@ -6178,7 +6199,7 @@ button:hover {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(74, 222, 128, 0.15);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.18);
   padding-bottom: 14px;
   margin-bottom: 18px;
 }
@@ -6231,7 +6252,7 @@ button:hover {
 .admin-form-group select,
 .admin-form-group textarea {
   width: 100%;
-  background: #05120a;
+  background: #060d1d;
   border: 1px solid var(--cf-border);
   color: #ffffff;
   padding: 12px 14px;
@@ -6246,8 +6267,8 @@ button:hover {
 .admin-form-group select:focus,
 .admin-form-group textarea:focus {
   outline: none;
-  border-color: var(--cf-lime);
-  box-shadow: 0 0 0 3px rgba(163, 230, 53, 0.15);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 }
 
 .admin-modal-footer {
@@ -6256,7 +6277,7 @@ button:hover {
   gap: 12px;
   margin-top: 24px;
   padding-top: 16px;
-  border-top: 1px solid rgba(74, 222, 128, 0.15);
+  border-top: 1px solid rgba(59, 130, 246, 0.18);
 }
 
 .admin-action-card {
@@ -6270,9 +6291,9 @@ button:hover {
 }
 
 .admin-action-card:hover {
-  border-color: var(--cf-lime);
+  border-color: #3b82f6;
   transform: translateY(-3px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(163, 230, 53, 0.15);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(59, 130, 246, 0.2);
 }
 
 .admin-quick-grid {
@@ -6306,4 +6327,382 @@ button:hover {
   font-size: 14px;
   color: var(--cf-muted);
   margin: 4px 0 0 0;
+}
+
+/* =====================================================
+   CAMPUSFIX PRO — THEME UNIFICATION: FILTER BAR & PROFILE
+   ===================================================== */
+
+/* --- 1. MyTickets Filter Bar --- */
+.tickets-filter {
+  background: var(--cf-card) !important;
+  border: 1px solid var(--cf-border) !important;
+  border-radius: var(--cf-radius) !important;
+  box-shadow: var(--cf-shadow) !important;
+  backdrop-filter: blur(18px) !important;
+  padding: 18px !important;
+  display: grid !important;
+  grid-template-columns: 2fr 1fr 1fr !important;
+  gap: 14px !important;
+  margin-bottom: 25px !important;
+}
+
+.tickets-filter input,
+.tickets-filter select {
+  background: rgba(8, 16, 36, 0.85) !important;
+  border: 1px solid var(--cf-border) !important;
+  color: var(--cf-text) !important;
+  border-radius: 10px !important;
+  padding: 12px 14px !important;
+  font-size: 13.5px !important;
+  outline: none !important;
+  transition: all 0.2s ease !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+}
+
+.tickets-filter input::placeholder {
+  color: rgba(147, 197, 253, 0.5) !important;
+}
+
+.tickets-filter input:focus,
+.tickets-filter select:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+}
+
+.tickets-filter select option {
+  background: #0a142c !important;
+  color: #f0f6ff !important;
+}
+
+/* --- 2. My Profile Overview Card --- */
+.profile-overview {
+  background: var(--cf-card) !important;
+  border: 1px solid var(--cf-border) !important;
+  box-shadow: var(--cf-shadow) !important;
+  border-radius: var(--cf-radius) !important;
+  backdrop-filter: blur(18px) !important;
+}
+
+.profile-avatar {
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.24) 0%, rgba(29, 78, 216, 0.12) 100%) !important;
+  border: 2px solid var(--cf-border) !important;
+  color: #60a5fa !important;
+  box-shadow: 0 0 24px rgba(59, 130, 246, 0.25) !important;
+}
+
+.profile-role {
+  color: #60a5fa !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px !important;
+}
+
+.profile-email {
+  color: var(--cf-muted) !important;
+}
+
+.profile-picture-btn {
+  background: rgba(59, 130, 246, 0.12) !important;
+  border: 1px solid var(--cf-border) !important;
+  color: #60a5fa !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  border-radius: 10px !important;
+  padding: 12px 18px !important;
+  cursor: pointer !important;
+  transition: all 0.25s ease !important;
+  display: inline-block !important;
+  text-align: center !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.profile-picture-btn:hover {
+  background: rgba(59, 130, 246, 0.25) !important;
+  border-color: #60a5fa !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.35) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* --- 3. Personal Information Card --- */
+.profile-card-header h2 {
+  color: #ffffff !important;
+}
+
+.profile-card-header p {
+  color: var(--cf-muted) !important;
+}
+
+.edit-profile-btn {
+  background: rgba(59, 130, 246, 0.12) !important;
+  border: 1px solid var(--cf-border) !important;
+  color: #60a5fa !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  border-radius: 9px !important;
+  padding: 8px 18px !important;
+  cursor: pointer !important;
+  transition: all 0.25s ease !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.edit-profile-btn:hover {
+  background: rgba(59, 130, 246, 0.25) !important;
+  border-color: #60a5fa !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.35) !important;
+  transform: translateY(-1px) !important;
+}
+
+.profile-form-group label {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+.profile-form-group input {
+  background: rgba(8, 16, 36, 0.85) !important;
+  border: 1px solid var(--cf-border) !important;
+  color: var(--cf-text) !important;
+  border-radius: 9px !important;
+  padding: 11px 14px !important;
+  font-size: 13.5px !important;
+  box-sizing: border-box !important;
+  transition: all 0.2s ease !important;
+}
+
+.profile-form-group input::placeholder {
+  color: rgba(147, 197, 253, 0.45) !important;
+}
+
+.profile-form-group input:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+}
+
+/* --- 4. Security Card & Password Row --- */
+.security-card {
+  background: var(--cf-card) !important;
+  border: 1px solid var(--cf-border) !important;
+  box-shadow: var(--cf-shadow) !important;
+  border-radius: var(--cf-radius) !important;
+  backdrop-filter: blur(18px) !important;
+}
+
+.password-row {
+  background: rgba(8, 16, 36, 0.75) !important;
+  border: 1px solid var(--cf-border) !important;
+  border-radius: 12px !important;
+  padding: 18px 20px !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 20px !important;
+  transition: all 0.25s ease !important;
+}
+
+.password-row:hover {
+  border-color: rgba(59, 130, 246, 0.4) !important;
+}
+
+.password-row h3 {
+  color: #ffffff !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  margin: 0 0 4px 0 !important;
+}
+
+.password-row p {
+  color: var(--cf-muted) !important;
+  font-size: 13px !important;
+  margin: 0 !important;
+}
+
+.change-password-btn {
+  background: rgba(59, 130, 246, 0.12) !important;
+  border: 1px solid var(--cf-border) !important;
+  color: #60a5fa !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  border-radius: 9px !important;
+  padding: 10px 18px !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: all 0.25s ease !important;
+}
+
+.change-password-btn:hover {
+  background: rgba(59, 130, 246, 0.25) !important;
+  border-color: #60a5fa !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.35) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* --- 5. Change Password Form & Actions --- */
+.change-password-form {
+  margin-top: 22px !important;
+  padding-top: 22px !important;
+  border-top: 1px solid var(--cf-border) !important;
+}
+
+.change-password-form h3 {
+  color: #ffffff !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  margin: 0 0 6px 0 !important;
+}
+
+.change-password-form > p {
+  color: var(--cf-muted) !important;
+  font-size: 13px !important;
+  margin: 0 0 18px 0 !important;
+}
+
+.password-actions {
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  gap: 12px !important;
+  margin-top: 18px !important;
+}
+
+.cancel-button {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid var(--cf-border) !important;
+  color: var(--cf-text) !important;
+  border-radius: 9px !important;
+  padding: 10px 20px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-decoration: none !important;
+  transition: all 0.25s ease !important;
+}
+
+.cancel-button:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: #60a5fa !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) !important;
+}
+
+.password-actions .submit-complaint,
+.password-actions .primary-btn {
+  background: linear-gradient(135deg, #1d4ed8, #3b82f6) !important;
+  border: none !important;
+  color: #ffffff !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  border-radius: 9px !important;
+  padding: 10px 22px !important;
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.35) !important;
+  cursor: pointer !important;
+  transition: all 0.25s ease !important;
+}
+
+.password-actions .submit-complaint:hover,
+.password-actions .primary-btn:hover {
+  background: linear-gradient(135deg, #2563eb, #60a5fa) !important;
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* --- 6. Technician Profile & Shared Secondary Buttons --- */
+.security-row {
+  background: rgba(8, 16, 36, 0.75) !important;
+  border: 1px solid var(--cf-border) !important;
+  color: #ffffff !important;
+  border-radius: 12px !important;
+}
+
+.security-row .secondary-btn,
+.password-actions .secondary-btn {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid var(--cf-border) !important;
+  color: #60a5fa !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  padding: 10px 18px !important;
+  cursor: pointer !important;
+  transition: all 0.25s ease !important;
+}
+
+.security-row .secondary-btn:hover,
+.password-actions .secondary-btn:hover {
+  background: rgba(59, 130, 246, 0.2) !important;
+  border-color: #60a5fa !important;
+  color: #ffffff !important;
+}
+
+.password-form {
+  background: rgba(8, 16, 36, 0.75) !important;
+  border: 1px solid var(--cf-border) !important;
+  border-radius: 12px !important;
+  color: #ffffff !important;
+}
+
+.password-form h4 {
+  color: #ffffff !important;
+}
+
+.password-form input {
+  background: rgba(6, 13, 29, 0.85) !important;
+  border: 1px solid var(--cf-border) !important;
+  color: var(--cf-text) !important;
+  border-radius: 8px !important;
+}
+
+.password-form input:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+}
+
+.technician-profile-avatar {
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.24) 0%, rgba(29, 78, 216, 0.12) 100%) !important;
+  border: 2px solid var(--cf-border) !important;
+  color: #60a5fa !important;
+  box-shadow: 0 0 24px rgba(59, 130, 246, 0.25) !important;
+}
+
+.profile-page-header .primary-btn {
+  background: linear-gradient(135deg, #1d4ed8, #3b82f6) !important;
+  border: none !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+  padding: 10px 20px !important;
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.35) !important;
+  cursor: pointer !important;
+}
+
+.profile-page-header .primary-btn:hover {
+  background: linear-gradient(135deg, #2563eb, #60a5fa) !important;
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5) !important;
+}
+
+/* --- 7. Raise Complaint - Upload Box & Actions --- */
+.upload-box {
+  background: rgba(8, 16, 36, 0.5) !important;
+  border: 2px dashed var(--cf-border) !important;
+  border-radius: 12px !important;
+  color: var(--cf-muted) !important;
+}
+
+.upload-box p {
+  color: var(--cf-text) !important;
+}
+
+.upload-box small {
+  color: var(--cf-muted) !important;
+}
+
+.complaint-actions {
+  border-top: 1px solid var(--cf-border) !important;
 }
