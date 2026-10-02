@@ -6823,3 +6823,123 @@ button:hover {
 .notification-item {
   color: #f8fafc;
 }
+```css
+/* =====================================
+   COMMON NOTIFICATION STYLE
+   User, Admin & Technician
+===================================== */
+
+.technician-notification-list,
+.user-notification-list,
+.admin-notification-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.technician-notification,
+.user-notification,
+.admin-notification {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 18px;
+  background: #0f1b38;
+  border: 1px solid #1e3a6b;
+  border-radius: 14px;
+  color: #f8fafc;
+  box-sizing: border-box;
+}
+
+.technician-notification.unread,
+.user-notification.unread,
+.admin-notification.unread {
+  background: #0f1b38;
+  border-color: #1e3a6b;
+}
+
+.notification-icon {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #eef2ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+}
+
+.notification-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification-content h3 {
+  margin: 0 0 8px;
+  color: #27314a;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.notification-content p {
+  margin: 0 0 8px;
+  color: #c4d2ed;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.notification-content small {
+  display: block;
+  color: #9ab0d4;
+  font-size: 11px;
+  margin-top: 8px;
+}
+
+.notification-ticket {
+  display: inline-block;
+  color: #93c5fd;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.notification-read-btn {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  background: #ffffff;
+  color: #2563eb;
+  border: 1px solid #3b82f6;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.notification-read-btn:hover {
+  background: #dbeafe;
+}
+
+.notification-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: #a4b3d0;
+}
+
+@media (max-width: 650px) {
+  .technician-notification,
+  .user-notification,
+  .admin-notification {
+    flex-wrap: wrap;
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .notification-content {
+    flex-basis: calc(100% - 55px);
+  }
+
+  .notification-read-btn {
+    margin-left: 52px;
+  }
+}
