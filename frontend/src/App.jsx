@@ -58,14 +58,14 @@ function Home() {
       onClick={() => navigate("/login")}
       title="Access Student, Technician, or Admin Portals"
     >
-      🔑 Portals Login
+      Portals Login
     </button>
 
     <button
       className="register-btn"
       onClick={() => navigate("/register")}
     >
-      🏛️ Register College
+      Register College
     </button>
   </div>
 
@@ -109,7 +109,7 @@ function Home() {
         className="portal-hero-btn"
         onClick={() => navigate("/login")}
       >
-        🚀 Dashboard Portals
+        Dashboard Portals
       </button>
 
       <button
