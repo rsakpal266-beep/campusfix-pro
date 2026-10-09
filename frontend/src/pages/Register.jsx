@@ -1,4 +1,3 @@
-
 """Authentication routes for CampusFix Pro (FastAPI)."""
 
 from datetime import datetime, timedelta, timezone
