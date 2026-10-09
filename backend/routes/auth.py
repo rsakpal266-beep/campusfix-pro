@@ -1,7 +1,9 @@
+
 """Authentication routes for CampusFix Pro (FastAPI)."""
 
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any
+
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -30,123 +32,170 @@ router = APIRouter(prefix="/api", tags=["Auth"])
 
 
 # -------------------------------------------------------------
-# REGISTER (Only for Colleges / Institutional Accounts)
+# REGISTER: College Admin, Students, and Faculty
 # -------------------------------------------------------------
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 @router.post("/college/register", status_code=status.HTTP_201_CREATED)
-def register_college(payload: Dict[str, Any], db: Session = Depends(get_db)):
-    """
-    Register a College / Institution account.
-    Students, Faculty, and Technicians cannot self-register;
-    they are onboarded by their College Admin with an email & password.
-    """
-    raw_role = str(payload.get("role", "")).strip().lower()
+def register_college(
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db),
+):
+    """Register a College Admin, Student, or Faculty member."""
 
-    # Block students, faculty, and technicians from self-registration
-    if raw_role in ["student", "faculty", "technician"]:
+    # Default to admin for compatibility with the old college form.
+    raw_role = str(payload.get("role") or "admin").strip().lower()
+
+    # Public technician registration is never allowed.
+    if raw_role == "technician":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                f"Self-registration is not allowed for {raw_role.capitalize()} accounts. "
-                "Your College Administrator must add your account from their dashboard and "
-                "provide you with your login email and password."
-            ),
+            detail="Technician accounts can only be created by a College Admin.",
         )
 
-    # College Registration Details
-    college_name = str(payload.get("college_name") or "").strip()
-    admin_name = str(payload.get("admin_name") or payload.get("full_name") or "").strip()
-    email = str(payload.get("email") or "").strip().lower()
-    raw_password = str(payload.get("password") or "").strip()
-    phone = str(payload.get("phone") or "").strip()
-    campus_address = str(payload.get("campus_address") or payload.get("department") or "").strip()
-    college_code = str(payload.get("college_code") or payload.get("student_or_emp_id") or "").strip()
-
-    if not college_name:
+    if raw_role not in ("admin", "student", "faculty"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="College / Institution Name is required.",
+            detail="Invalid role. Choose Student, Faculty, or College Admin.",
         )
 
-    if not admin_name:
-        admin_name = f"{college_name} Administrator"
+    email = str(payload.get("email") or "").strip().lower()
+    raw_password = str(payload.get("password") or "")
+    phone = str(payload.get("phone") or "").strip()
+    college_name = str(payload.get("college_name") or "").strip()
+
+    full_name = str(
+        payload.get("admin_name")
+        or payload.get("full_name")
+        or ""
+    ).strip()
+
+    if not full_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Full name is required.",
+        )
 
     if not email or "@" not in email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A valid official college email address is required.",
+            detail="Please enter a valid email address.",
         )
 
-    if not raw_password or len(raw_password) < 6:
+    if len(raw_password) < 6:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Password must be at least 6 characters long.",
+        )
+
+    if raw_role == "admin" and not college_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="College / Institution Name is required.",
         )
 
     existing = db.query(User).filter(User.email == email).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"An account with email '{email}' already exists. Please sign in instead.",
+            detail="An account with this email already exists. Please log in.",
         )
 
-    new_college_admin = User(
-        full_name=admin_name,
+    if raw_role == "admin":
+        department = str(
+            payload.get("campus_address")
+            or payload.get("department")
+            or "College Administration"
+        ).strip()
+
+        student_or_emp_id = str(
+            payload.get("college_code")
+            or payload.get("student_or_emp_id")
+            or ""
+        ).strip() or None
+    else:
+        department = str(payload.get("department") or "").strip() or None
+
+        student_or_emp_id = str(
+            payload.get("student_or_emp_id") or ""
+        ).strip() or None
+
+    new_user = User(
+        full_name=full_name,
         email=email,
         password_hash=hash_password(raw_password),
-        role="admin",
-        department=campus_address or "College Administration",
-        college_name=college_name,
-        student_or_emp_id=college_code or None,
+        role=raw_role,
+        department=department,
+        college_name=college_name or None,
+        student_or_emp_id=student_or_emp_id,
         phone=phone or None,
         is_active=True,
     )
-    db.add(new_college_admin)
+
+    db.add(new_user)
     db.commit()
-    db.refresh(new_college_admin)
+    db.refresh(new_user)
 
-    # Generate JWT Token so the college admin is ready to access dashboard
-    token = create_access_token(
-        {
-            "user_id": new_college_admin.id,
-            "email": new_college_admin.email,
-            "role": new_college_admin.role,
-            "full_name": new_college_admin.full_name,
-            "college_name": new_college_admin.college_name,
+    # Preserve the existing College Admin auto-login behavior.
+    if raw_role == "admin":
+        token = create_access_token(
+            {
+                "user_id": new_user.id,
+                "email": new_user.email,
+                "role": new_user.role,
+                "full_name": new_user.full_name,
+                "college_name": new_user.college_name,
+            }
+        )
+
+        return {
+            "status": "success",
+            "message": (
+                f"College '{college_name}' registered successfully!"
+            ),
+            "token": token,
+            "user": {
+                "id": new_user.id,
+                "full_name": new_user.full_name,
+                "email": new_user.email,
+                "role": new_user.role,
+                "college_name": new_user.college_name,
+                "department": new_user.department,
+                "phone": new_user.phone,
+            },
         }
-    )
 
+    # Students and faculty log in after registering.
     return {
         "status": "success",
-        "message": f"College '{college_name}' registered successfully! You can now log in and onboard students, faculty, and technicians.",
-        "token": token,
+        "message": (
+            f"{raw_role.capitalize()} registration successful. Please log in."
+        ),
         "user": {
-            "id": new_college_admin.id,
-            "full_name": new_college_admin.full_name,
-            "email": new_college_admin.email,
-            "role": new_college_admin.role,
-            "college_name": new_college_admin.college_name,
-            "department": new_college_admin.department,
-            "phone": new_college_admin.phone,
+            "id": new_user.id,
+            "full_name": new_user.full_name,
+            "email": new_user.email,
+            "role": new_user.role,
+            "college_name": new_user.college_name or "Campus",
+            "department": new_user.department,
+            "phone": new_user.phone,
+            "student_or_emp_id": new_user.student_or_emp_id,
         },
     }
 
 
 # -------------------------------------------------------------
-# LOGIN (For College Admin, Technicians, Students, & Faculty)
+# LOGIN: All existing account roles
 # -------------------------------------------------------------
 
 @router.post("/login", response_model=LoginResponse)
 @router.post("/auth/login", response_model=LoginResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    """
-    Login endpoint for all roles:
-    - College Administrator (registered with their college)
-    - Technicians (created by their college)
-    - Faculty (created by their college)
-    - Students (created by their college)
-    """
+def login(
+    payload: LoginRequest,
+    db: Session = Depends(get_db),
+):
+    """Authenticate an existing account."""
+
     email = payload.email.strip().lower()
     password = payload.password
 
@@ -157,10 +206,11 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         )
 
     user = db.query(User).filter(User.email == email).first()
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Account not found. If you are a Student, Faculty, or Technician, make sure your College Admin has created your account.",
+            detail="Account not found. Please check your email or register first.",
         )
 
     if not user.is_active:
@@ -172,10 +222,9 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     if not verify_password(password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid password. Please check your credentials or ask your College Admin to reset your password.",
+            detail="Invalid password. Please check your credentials.",
         )
 
-    # Generate JWT Token
     token = create_access_token(
         {
             "user_id": user.id,
@@ -205,11 +254,13 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 
 
 # -------------------------------------------------------------
-# PROFILE (GET & PUT)
+# PROFILE: GET
 # -------------------------------------------------------------
 
 @router.get("/profile")
-def get_profile(current_user: User = Depends(get_current_user)):
+def get_profile(
+    current_user: User = Depends(get_current_user),
+):
     return {
         "status": "success",
         "user": {
@@ -222,10 +273,18 @@ def get_profile(current_user: User = Depends(get_current_user)):
             "phone": current_user.phone,
             "student_or_emp_id": current_user.student_or_emp_id,
             "college_name": current_user.college_name or "Campus",
-            "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
+            "created_at": (
+                current_user.created_at.isoformat()
+                if current_user.created_at
+                else None
+            ),
         },
     }
 
+
+# -------------------------------------------------------------
+# PROFILE: UPDATE
+# -------------------------------------------------------------
 
 @router.put("/profile")
 def update_profile(
@@ -235,12 +294,16 @@ def update_profile(
 ):
     if payload.full_name is not None and payload.full_name.strip():
         current_user.full_name = payload.full_name.strip()
+
     if payload.phone is not None:
         current_user.phone = payload.phone.strip()
+
     if payload.department is not None:
         current_user.department = payload.department.strip()
+
     if payload.specialization is not None:
         current_user.specialization = payload.specialization.strip()
+
     if payload.student_or_emp_id is not None:
         current_user.student_or_emp_id = payload.student_or_emp_id.strip()
 
@@ -265,11 +328,14 @@ def update_profile(
 
 
 # -------------------------------------------------------------
-# FORGOT & RESET PASSWORD
+# FORGOT PASSWORD
 # -------------------------------------------------------------
 
 @router.post("/forgot-password")
-def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+def forgot_password(
+    payload: ForgotPasswordRequest,
+    db: Session = Depends(get_db),
+):
     email = payload.email.strip().lower()
     user = db.query(User).filter(User.email == email).first()
 
@@ -279,7 +345,6 @@ def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db
             detail="No account found with this email address.",
         )
 
-    # 15-minute reset token
     reset_token = jwt.encode(
         {
             "user_id": user.id,
@@ -298,9 +363,17 @@ def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db
     }
 
 
+# -------------------------------------------------------------
+# RESET PASSWORD
+# -------------------------------------------------------------
+
 @router.post("/reset-password")
-def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+def reset_password(
+    payload: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+):
     new_password = payload.new_password.strip()
+
     if len(new_password) < 6:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -308,18 +381,26 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
         )
 
     try:
-        data = jwt.decode(payload.reset_token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        data = jwt.decode(
+            payload.reset_token,
+            JWT_SECRET_KEY,
+            algorithms=[JWT_ALGORITHM],
+        )
+
         if data.get("purpose") != "password_reset":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid password reset token.",
             )
+
         user_id = data.get("user_id")
+
     except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Password reset token has expired.",
         )
+
     except jwt.InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -327,6 +408,7 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
         )
 
     user = db.query(User).filter(User.id == user_id).first()
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -338,12 +420,12 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
 
     return {
         "status": "success",
-        "message": "Password reset successfully. You can now login with your new password.",
+        "message": "Password reset successfully. You can now log in.",
     }
 
 
 # -------------------------------------------------------------
-# CHANGE PASSWORD (FOR LOGGED IN USERS)
+# CHANGE PASSWORD
 # -------------------------------------------------------------
 
 @router.post("/change-password")
@@ -352,7 +434,10 @@ def change_password(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if not verify_password(payload.current_password, current_user.password_hash):
+    if not verify_password(
+        payload.current_password,
+        current_user.password_hash,
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Current password is incorrect.",
