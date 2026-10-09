@@ -1,463 +1,375 @@
-"""Authentication routes for CampusFix Pro (FastAPI)."""
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { API_BASE_URL } from "../config";
 
-from datetime import datetime, timedelta, timezone
-from typing import Dict, Any
+function Register() {
+  const navigate = useNavigate();
 
-import jwt
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+  const [role, setRole] = useState("student");
 
-from config import JWT_SECRET_KEY, JWT_ALGORITHM
-from database import get_db
-from models import User
-from schemas import (
-    LoginRequest,
-    LoginResponse,
-    UserCreate,
-    CollegeRegisterRequest,
-    ProfileUpdateRequest,
-    ForgotPasswordRequest,
-    ResetPasswordRequest,
-    ChangePasswordRequest,
-)
-from security import (
-    verify_password,
-    hash_password,
-    create_access_token,
-    get_current_user,
-)
+  const [formData, setFormData] = useState({
+    full_name: "",
+    email: "",
+    phone: "",
+    department: "",
+    student_or_emp_id: "",
+    college_name: "",
+    college_code: "",
+    campus_address: "",
+    password: "",
+    confirmPassword: "",
+  });
 
-router = APIRouter(prefix="/api", tags=["Auth"])
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
+  const handleChange = (e) => {
+    setFormData((previous) => ({
+      ...previous,
+      [e.target.name]: e.target.value,
+    }));
+  };
 
-# -------------------------------------------------------------
-# REGISTER: College Admin, Students, and Faculty
-# -------------------------------------------------------------
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMessage("");
+    setError("");
 
-@router.post("/register", status_code=status.HTTP_201_CREATED)
-@router.post("/college/register", status_code=status.HTTP_201_CREATED)
-def register_college(
-    payload: Dict[str, Any],
-    db: Session = Depends(get_db),
-):
-    """Register a College Admin, Student, or Faculty member."""
+    if (!formData.full_name.trim()) {
+      setError("Please enter your full name.");
+      return;
+    }
 
-    # Default to admin for compatibility with the old college form.
-    raw_role = str(payload.get("role") or "admin").strip().lower()
+    if (!formData.email.trim()) {
+      setError("Please enter your email address.");
+      return;
+    }
 
-    # Public technician registration is never allowed.
-    if raw_role == "technician":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Technician accounts can only be created by a College Admin.",
-        )
+    if (role === "admin" && !formData.college_name.trim()) {
+      setError("Please enter your College / Institution Name.");
+      return;
+    }
 
-    if raw_role not in ("admin", "student", "faculty"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid role. Choose Student, Faculty, or College Admin.",
-        )
+    if (formData.password.length < 6) {
+      setError("Password must be at least 6 characters long.");
+      return;
+    }
 
-    email = str(payload.get("email") or "").strip().lower()
-    raw_password = str(payload.get("password") or "")
-    phone = str(payload.get("phone") or "").strip()
-    college_name = str(payload.get("college_name") or "").strip()
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
 
-    full_name = str(
-        payload.get("admin_name")
-        or payload.get("full_name")
-        or ""
-    ).strip()
+    setLoading(true);
 
-    if not full_name:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Full name is required.",
-        )
+    try {
+      let payload;
 
-    if not email or "@" not in email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Please enter a valid email address.",
-        )
+      if (role === "admin") {
+        // Preserve the existing College Admin registration format.
+        payload = {
+          college_name: formData.college_name.trim(),
+          college_code: formData.college_code.trim(),
+          admin_name: formData.full_name.trim(),
+          email: formData.email.trim().toLowerCase(),
+          phone: formData.phone.trim(),
+          campus_address: formData.campus_address.trim(),
+          password: formData.password,
+        };
+      } else {
+        // Student and Faculty registration.
+        payload = {
+          role,
+          full_name: formData.full_name.trim(),
+          email: formData.email.trim().toLowerCase(),
+          phone: formData.phone.trim(),
+          department: formData.department.trim(),
+          student_or_emp_id: formData.student_or_emp_id.trim(),
+          college_name: formData.college_name.trim(),
+          password: formData.password,
+        };
+      }
 
-    if len(raw_password) < 6:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password must be at least 6 characters long.",
-        )
-
-    if raw_role == "admin" and not college_name:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="College / Institution Name is required.",
-        )
-
-    existing = db.query(User).filter(User.email == email).first()
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="An account with this email already exists. Please log in.",
-        )
-
-    if raw_role == "admin":
-        department = str(
-            payload.get("campus_address")
-            or payload.get("department")
-            or "College Administration"
-        ).strip()
-
-        student_or_emp_id = str(
-            payload.get("college_code")
-            or payload.get("student_or_emp_id")
-            or ""
-        ).strip() or None
-    else:
-        department = str(payload.get("department") or "").strip() or None
-
-        student_or_emp_id = str(
-            payload.get("student_or_emp_id") or ""
-        ).strip() or None
-
-    new_user = User(
-        full_name=full_name,
-        email=email,
-        password_hash=hash_password(raw_password),
-        role=raw_role,
-        department=department,
-        college_name=college_name or None,
-        student_or_emp_id=student_or_emp_id,
-        phone=phone or None,
-        is_active=True,
-    )
-
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-
-    # Preserve the existing College Admin auto-login behavior.
-    if raw_role == "admin":
-        token = create_access_token(
-            {
-                "user_id": new_user.id,
-                "email": new_user.email,
-                "role": new_user.role,
-                "full_name": new_user.full_name,
-                "college_name": new_user.college_name,
-            }
-        )
-
-        return {
-            "status": "success",
-            "message": (
-                f"College '{college_name}' registered successfully!"
-            ),
-            "token": token,
-            "user": {
-                "id": new_user.id,
-                "full_name": new_user.full_name,
-                "email": new_user.email,
-                "role": new_user.role,
-                "college_name": new_user.college_name,
-                "department": new_user.department,
-                "phone": new_user.phone,
-            },
-        }
-
-    # Students and faculty log in after registering.
-    return {
-        "status": "success",
-        "message": (
-            f"{raw_role.capitalize()} registration successful. Please log in."
-        ),
-        "user": {
-            "id": new_user.id,
-            "full_name": new_user.full_name,
-            "email": new_user.email,
-            "role": new_user.role,
-            "college_name": new_user.college_name or "Campus",
-            "department": new_user.department,
-            "phone": new_user.phone,
-            "student_or_emp_id": new_user.student_or_emp_id,
+      const response = await fetch(`${API_BASE_URL}/api/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(
+          typeof data.detail === "string"
+            ? data.detail
+            : data.message || "Registration failed."
+        );
+        return;
+      }
+
+      // College Admin keeps the existing automatic login behavior.
+      if (role === "admin" && data.token && data.user) {
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+
+        setMessage(
+          "College registered successfully! Redirecting to Admin Dashboard..."
+        );
+
+        setTimeout(() => {
+          navigate("/admin-dashboard");
+        }, 1200);
+
+        return;
+      }
+
+      setMessage(
+        `${role === "student" ? "Student" : "Faculty"} registration successful! Please log in.`
+      );
+
+      setTimeout(() => {
+        navigate("/login");
+      }, 1200);
+    } catch (err) {
+      console.error("Registration error:", err);
+      setError(
+        "Unable to connect to the backend server. Please check your connection."
+      );
+    } finally {
+      setLoading(false);
     }
+  };
 
+  return (
+    <div className="auth-page">
+      <div
+        className="auth-card auth-card-enhanced"
+        style={{ maxWidth: "560px" }}
+      >
+        <div className="login-logo">
+          <div className="login-brand-text">
+            <strong>
+              CampusFix <span>Pro</span>
+            </strong>
+            <small>MAINTENANCE & REPAIR SYSTEM</small>
+          </div>
+        </div>
 
-# -------------------------------------------------------------
-# LOGIN: All existing account roles
-# -------------------------------------------------------------
+        <div style={{ textAlign: "center", marginBottom: "20px" }}>
+          <span style={{ fontSize: "36px" }}>
+            {role === "admin" ? "🏛️" : role === "faculty" ? "👩‍🏫" : "🎓"}
+          </span>
 
-@router.post("/login", response_model=LoginResponse)
-@router.post("/auth/login", response_model=LoginResponse)
-def login(
-    payload: LoginRequest,
-    db: Session = Depends(get_db),
-):
-    """Authenticate an existing account."""
+          <h2 style={{ margin: "6px 0", color: "#ffffff" }}>
+            {role === "admin"
+              ? "Register Your College"
+              : "Create Your Account"}
+          </h2>
 
-    email = payload.email.strip().lower()
-    password = payload.password
+          <p className="auth-subtitle" style={{ margin: 0 }}>
+            {role === "admin"
+              ? "Create an institution account to manage campus maintenance."
+              : "Register to report and track campus maintenance complaints."}
+          </p>
+        </div>
 
-    if not email or not password:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email and password are required.",
-        )
+        <form onSubmit={handleSubmit} className="login-form">
+          <label>Register As *</label>
+          <select
+            name="role"
+            value={role}
+            onChange={(e) => {
+              setRole(e.target.value);
+              setError("");
+              setMessage("");
+            }}
+            required
+          >
+            <option value="student">Student</option>
+            <option value="faculty">Faculty</option>
+            <option value="admin">College Admin</option>
+          </select>
 
-    user = db.query(User).filter(User.email == email).first()
+          <label>
+            {role === "admin" ? "Admin / Registrar Name *" : "Full Name *"}
+          </label>
+          <input
+            type="text"
+            name="full_name"
+            value={formData.full_name}
+            onChange={handleChange}
+            placeholder="Enter your full name"
+            required
+          />
 
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Account not found. Please check your email or register first.",
-        )
+          <label>
+            {role === "admin" ? "Official College Email *" : "Email Address *"}
+          </label>
+          <input
+            type="email"
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
+            placeholder="Enter your email address"
+            required
+          />
 
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Your account has been deactivated. Please contact your College Administration.",
-        )
+          {role === "admin" ? (
+            <>
+              <label>College / Institution Name *</label>
+              <input
+                type="text"
+                name="college_name"
+                value={formData.college_name}
+                onChange={handleChange}
+                placeholder="Enter college name"
+                required
+              />
 
-    if not verify_password(password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid password. Please check your credentials.",
-        )
+              <label>College / Campus Code</label>
+              <input
+                type="text"
+                name="college_code"
+                value={formData.college_code}
+                onChange={handleChange}
+                placeholder="e.g. COLLEGE-01"
+              />
 
-    token = create_access_token(
-        {
-            "user_id": user.id,
-            "email": user.email,
-            "role": user.role,
-            "full_name": user.full_name,
-            "college_name": user.college_name,
-        }
-    )
+              <label>Campus Location / City</label>
+              <input
+                type="text"
+                name="campus_address"
+                value={formData.campus_address}
+                onChange={handleChange}
+                placeholder="Enter campus location"
+              />
+            </>
+          ) : (
+            <>
+              <label>College / Institution Name</label>
+              <input
+                type="text"
+                name="college_name"
+                value={formData.college_name}
+                onChange={handleChange}
+                placeholder="Enter your college name"
+              />
 
-    return {
-        "status": "success",
-        "message": f"Welcome back, {user.full_name}!",
-        "token": token,
-        "user": {
-            "id": user.id,
-            "full_name": user.full_name,
-            "email": user.email,
-            "role": user.role,
-            "college_name": user.college_name or "Campus",
-            "department": user.department,
-            "phone": user.phone,
-            "specialization": user.specialization,
-            "student_or_emp_id": user.student_or_emp_id,
-        },
-    }
+              <label>
+                {role === "student" ? "Student ID" : "Employee ID"}
+              </label>
+              <input
+                type="text"
+                name="student_or_emp_id"
+                value={formData.student_or_emp_id}
+                onChange={handleChange}
+                placeholder="Enter your ID (optional)"
+              />
 
+              <label>Department / Class</label>
+              <input
+                type="text"
+                name="department"
+                value={formData.department}
+                onChange={handleChange}
+                placeholder="e.g. Information Technology"
+              />
+            </>
+          )}
 
-# -------------------------------------------------------------
-# PROFILE: GET
-# -------------------------------------------------------------
+          <label>Phone Number</label>
+          <input
+            type="tel"
+            name="phone"
+            value={formData.phone}
+            onChange={handleChange}
+            placeholder="Enter phone number"
+          />
 
-@router.get("/profile")
-def get_profile(
-    current_user: User = Depends(get_current_user),
-):
-    return {
-        "status": "success",
-        "user": {
-            "id": current_user.id,
-            "full_name": current_user.full_name,
-            "email": current_user.email,
-            "role": current_user.role,
-            "department": current_user.department,
-            "specialization": current_user.specialization,
-            "phone": current_user.phone,
-            "student_or_emp_id": current_user.student_or_emp_id,
-            "college_name": current_user.college_name or "Campus",
-            "created_at": (
-                current_user.created_at.isoformat()
-                if current_user.created_at
-                else None
-            ),
-        },
-    }
+          <label>Password *</label>
+          <input
+            type="password"
+            name="password"
+            value={formData.password}
+            onChange={handleChange}
+            placeholder="Minimum 6 characters"
+            minLength={6}
+            required
+          />
 
+          <label>Confirm Password *</label>
+          <input
+            type="password"
+            name="confirmPassword"
+            value={formData.confirmPassword}
+            onChange={handleChange}
+            placeholder="Re-enter your password"
+            required
+          />
 
-# -------------------------------------------------------------
-# PROFILE: UPDATE
-# -------------------------------------------------------------
+          {error && (
+            <div className="auth-error-banner" role="alert">
+              ⚠️ {error}
+            </div>
+          )}
 
-@router.put("/profile")
-def update_profile(
-    payload: ProfileUpdateRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    if payload.full_name is not None and payload.full_name.strip():
-        current_user.full_name = payload.full_name.strip()
+          {message && (
+            <div className="auth-info-banner" role="status">
+              {message}
+            </div>
+          )}
 
-    if payload.phone is not None:
-        current_user.phone = payload.phone.strip()
+          <button
+            type="submit"
+            className="auth-button"
+            disabled={loading}
+            style={{
+              width: "100%",
+              padding: "14px",
+              marginTop: "16px",
+            }}
+          >
+            {loading
+              ? "Registering..."
+              : role === "admin"
+                ? "Register College 🏛️"
+                : `Register as ${role === "student" ? "Student 🎓" : "Faculty 👩‍🏫"}`}
+          </button>
+        </form>
 
-    if payload.department is not None:
-        current_user.department = payload.department.strip()
+        <div
+          className="auth-switch"
+          style={{ marginTop: "18px", textAlign: "center" }}
+        >
+          Already have an account?{" "}
+          <Link to="/login" style={{ fontWeight: "bold" }}>
+            Sign In
+          </Link>
+        </div>
 
-    if payload.specialization is not None:
-        current_user.specialization = payload.specialization.strip()
+        <div
+          style={{
+            marginTop: "14px",
+            textAlign: "center",
+            fontSize: "12px",
+            color: "var(--cf-muted)",
+          }}
+        >
+          🔒 Technician accounts can only be created by an authorized College
+          Admin.
+        </div>
 
-    if payload.student_or_emp_id is not None:
-        current_user.student_or_emp_id = payload.student_or_emp_id.strip()
+        <div style={{ textAlign: "center", marginTop: "14px" }}>
+          <Link to="/" className="back-home">
+            ← Back to Homepage
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-    db.commit()
-    db.refresh(current_user)
-
-    return {
-        "status": "success",
-        "message": "Profile updated successfully.",
-        "user": {
-            "id": current_user.id,
-            "full_name": current_user.full_name,
-            "email": current_user.email,
-            "role": current_user.role,
-            "department": current_user.department,
-            "specialization": current_user.specialization,
-            "phone": current_user.phone,
-            "student_or_emp_id": current_user.student_or_emp_id,
-            "college_name": current_user.college_name or "Campus",
-        },
-    }
-
-
-# -------------------------------------------------------------
-# FORGOT PASSWORD
-# -------------------------------------------------------------
-
-@router.post("/forgot-password")
-def forgot_password(
-    payload: ForgotPasswordRequest,
-    db: Session = Depends(get_db),
-):
-    email = payload.email.strip().lower()
-    user = db.query(User).filter(User.email == email).first()
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No account found with this email address.",
-        )
-
-    reset_token = jwt.encode(
-        {
-            "user_id": user.id,
-            "email": user.email,
-            "purpose": "password_reset",
-            "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
-        },
-        JWT_SECRET_KEY,
-        algorithm=JWT_ALGORITHM,
-    )
-
-    return {
-        "status": "success",
-        "message": "Password reset token generated successfully.",
-        "reset_token": reset_token,
-    }
-
-
-# -------------------------------------------------------------
-# RESET PASSWORD
-# -------------------------------------------------------------
-
-@router.post("/reset-password")
-def reset_password(
-    payload: ResetPasswordRequest,
-    db: Session = Depends(get_db),
-):
-    new_password = payload.new_password.strip()
-
-    if len(new_password) < 6:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password must contain at least 6 characters.",
-        )
-
-    try:
-        data = jwt.decode(
-            payload.reset_token,
-            JWT_SECRET_KEY,
-            algorithms=[JWT_ALGORITHM],
-        )
-
-        if data.get("purpose") != "password_reset":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid password reset token.",
-            )
-
-        user_id = data.get("user_id")
-
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password reset token has expired.",
-        )
-
-    except jwt.InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid reset token.",
-        )
-
-    user = db.query(User).filter(User.id == user_id).first()
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User account not found.",
-        )
-
-    user.password_hash = hash_password(new_password)
-    db.commit()
-
-    return {
-        "status": "success",
-        "message": "Password reset successfully. You can now log in.",
-    }
-
-
-# -------------------------------------------------------------
-# CHANGE PASSWORD
-# -------------------------------------------------------------
-
-@router.post("/change-password")
-def change_password(
-    payload: ChangePasswordRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    if not verify_password(
-        payload.current_password,
-        current_user.password_hash,
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Current password is incorrect.",
-        )
-
-    if len(payload.new_password) < 6:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="New password must contain at least 6 characters.",
-        )
-
-    if payload.current_password == payload.new_password:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="New password must be different from current password.",
-        )
-
-    current_user.password_hash = hash_password(payload.new_password)
-    db.commit()
-
-    return {
-        "status": "success",
-        "message": "Password changed successfully.",
-    }
+export default Register;
