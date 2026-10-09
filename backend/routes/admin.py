@@ -338,32 +338,39 @@ def get_all_users(
     current_user: User = Depends(require_roles(["admin"])),
     db: Session = Depends(get_db),
 ):
+    """Get users belonging to the admin's college."""
+
     college = current_user.college_name
 
-    # Return ONLY users belonging to this admin's college
     users = (
         db.query(User)
         .filter(User.college_name == college)
         .order_by(desc(User.created_at))
         .all()
     )
+
     result = []
+
     for u in users:
-        result.append(
-            {
-                "id": u.id,
-                "full_name": u.full_name,
-                "email": u.email,
-                "role": u.role,
-                "college_name": u.college_name or college or "Campus",
-                "department": u.department,
-                "specialization": u.specialization,
-                "phone": u.phone,
-                "student_or_emp_id": u.student_or_emp_id,
-                "is_active": u.is_active,
-                "created_at": u.created_at.isoformat() if u.created_at else None,
-            }
-        )
+        result.append({
+            "id": u.id,
+            "full_name": u.full_name,
+            "email": u.email,
+            "role": u.role,
+            "college_name": u.college_name or college or "Campus",
+            "department": u.department,
+            "specialization": u.specialization,
+            "phone": u.phone,
+            "student_or_emp_id": u.student_or_emp_id,
+            "is_active": u.is_active,
+            "approval_status": getattr(
+                u, "approval_status", "approved"
+            ),
+            "created_at": (
+                u.created_at.isoformat()
+                if u.created_at else None
+            ),
+        })
 
     return {
         "status": "success",
@@ -371,6 +378,88 @@ def get_all_users(
         "users": result,
     }
 
+# -------------------------------------------------------------
+# APPROVE STUDENT / FACULTY REGISTRATION
+# -------------------------------------------------------------
+
+@router.put("/users/{user_id}/approve")
+def approve_user(
+    user_id: int,
+    current_user: User = Depends(require_roles(["admin"])),
+    db: Session = Depends(get_db),
+):
+    """Approve a student or faculty account from the admin's college."""
+
+    user = (
+        db.query(User)
+        .filter(
+            User.id == user_id,
+            User.college_name == current_user.college_name,
+            User.role.in_(["student", "faculty"]),
+        )
+        .first()
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Student or Faculty account not found in your college.",
+        )
+
+    user.approval_status = "approved"
+    user.is_active = True
+
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "status": "success",
+        "message": f"{user.full_name} approved successfully.",
+        "approval_status": user.approval_status,
+        "is_active": user.is_active,
+    }
+
+
+# -------------------------------------------------------------
+# REJECT STUDENT / FACULTY REGISTRATION
+# -------------------------------------------------------------
+
+@router.put("/users/{user_id}/reject")
+def reject_user(
+    user_id: int,
+    current_user: User = Depends(require_roles(["admin"])),
+    db: Session = Depends(get_db),
+):
+    """Reject a student or faculty account from the admin's college."""
+
+    user = (
+        db.query(User)
+        .filter(
+            User.id == user_id,
+            User.college_name == current_user.college_name,
+            User.role.in_(["student", "faculty"]),
+        )
+        .first()
+    )
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Student or Faculty account not found in your college.",
+        )
+
+    user.approval_status = "rejected"
+    user.is_active = False
+
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "status": "success",
+        "message": f"{user.full_name}'s registration rejected.",
+        "approval_status": user.approval_status,
+        "is_active": user.is_active,
+    }
 
 @router.post("/users", status_code=status.HTTP_201_CREATED)
 def admin_create_user(
@@ -420,6 +509,7 @@ def admin_create_user(
         college_name=target_college,
         created_by_id=current_user.id,
         is_active=True,
+        approval_status="approved",
     )
     db.add(new_user)
     db.commit()
