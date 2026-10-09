@@ -1,4 +1,3 @@
-
 """Authentication routes for CampusFix Pro (FastAPI)."""
 
 from datetime import datetime, timedelta, timezone
@@ -14,8 +13,6 @@ from models import User
 from schemas import (
     LoginRequest,
     LoginResponse,
-    UserCreate,
-    CollegeRegisterRequest,
     ProfileUpdateRequest,
     ForgotPasswordRequest,
     ResetPasswordRequest,
@@ -43,10 +40,10 @@ def register_college(
 ):
     """Register a College Admin, Student, or Faculty member."""
 
-    # Default to admin for compatibility with the old college form.
+    # Preserve compatibility with the original college registration form.
     raw_role = str(payload.get("role") or "admin").strip().lower()
 
-    # Public technician registration is never allowed.
+    # Never allow public Technician registration.
     if raw_role == "technician":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -95,6 +92,7 @@ def register_college(
         )
 
     existing = db.query(User).filter(User.email == email).first()
+
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -114,7 +112,9 @@ def register_college(
             or ""
         ).strip() or None
     else:
-        department = str(payload.get("department") or "").strip() or None
+        department = str(
+            payload.get("department") or ""
+        ).strip() or None
 
         student_or_emp_id = str(
             payload.get("student_or_emp_id") or ""
@@ -136,7 +136,7 @@ def register_college(
     db.commit()
     db.refresh(new_user)
 
-    # Preserve the existing College Admin auto-login behavior.
+    # Preserve automatic login for College Admin registration.
     if raw_role == "admin":
         token = create_access_token(
             {
@@ -165,7 +165,7 @@ def register_college(
             },
         }
 
-    # Students and faculty log in after registering.
+    # Students and Faculty register first, then sign in.
     return {
         "status": "success",
         "message": (
