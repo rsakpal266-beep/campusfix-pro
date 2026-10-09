@@ -40,10 +40,8 @@ def register_college(
 ):
     """Register a College Admin, Student, or Faculty member."""
 
-    # Preserve compatibility with the original college registration form.
     raw_role = str(payload.get("role") or "admin").strip().lower()
 
-    # Never allow public Technician registration.
     if raw_role == "technician":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -120,6 +118,8 @@ def register_college(
             payload.get("student_or_emp_id") or ""
         ).strip() or None
 
+    # College Admin is active immediately.
+    # Student and Faculty accounts require approval.
     new_user = User(
         full_name=full_name,
         email=email,
@@ -129,7 +129,10 @@ def register_college(
         college_name=college_name or None,
         student_or_emp_id=student_or_emp_id,
         phone=phone or None,
-        is_active=True,
+        is_active=(raw_role == "admin"),
+        approval_status=(
+            "approved" if raw_role == "admin" else "pending"
+        ),
     )
 
     db.add(new_user)
@@ -165,11 +168,12 @@ def register_college(
             },
         }
 
-    # Students and Faculty register first, then sign in.
     return {
         "status": "success",
         "message": (
-            f"{raw_role.capitalize()} registration successful. Please log in."
+            f"{raw_role.capitalize()} registration submitted successfully. "
+            "Your account is pending College Admin approval. "
+            "You can log in after approval."
         ),
         "user": {
             "id": new_user.id,
@@ -180,6 +184,7 @@ def register_college(
             "department": new_user.department,
             "phone": new_user.phone,
             "student_or_emp_id": new_user.student_or_emp_id,
+            "approval_status": new_user.approval_status,
         },
     }
 
@@ -207,22 +212,45 @@ def login(
 
     user = db.query(User).filter(User.email == email).first()
 
-    if not user:
+    if not user or not verify_password(
+        password,
+        user.password_hash,
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Account not found. Please check your email or register first.",
+            detail="Invalid email or password.",
         )
+
+    # Require approval for Student and Faculty accounts.
+    if user.role in ("student", "faculty"):
+        approval = (
+            getattr(user, "approval_status", None) or "pending"
+        ).lower()
+
+        if approval == "pending":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Your account is pending College Admin approval."
+                ),
+            )
+
+        if approval != "approved":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Your registration was rejected. "
+                    "Please contact your College Admin."
+                ),
+            )
 
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Your account has been deactivated. Please contact your College Administration.",
-        )
-
-    if not verify_password(password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid password. Please check your credentials.",
+            detail=(
+                "Your account is inactive. "
+                "Please contact your College Administration."
+            ),
         )
 
     token = create_access_token(
@@ -305,7 +333,9 @@ def update_profile(
         current_user.specialization = payload.specialization.strip()
 
     if payload.student_or_emp_id is not None:
-        current_user.student_or_emp_id = payload.student_or_emp_id.strip()
+        current_user.student_or_emp_id = (
+            payload.student_or_emp_id.strip()
+        )
 
     db.commit()
     db.refresh(current_user)
