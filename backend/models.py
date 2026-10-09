@@ -1,3 +1,21 @@
+"""SQLAlchemy ORM models for CampusFix Pro (12 tables)."""
+
+from datetime import datetime
+
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Text,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Numeric,
+)
+from sqlalchemy.orm import relationship
+
+from database import Base
+
 # 1. USERS TABLE (Roles: student, faculty, technician, admin)
 class User(Base):
     __tablename__ = "users"
