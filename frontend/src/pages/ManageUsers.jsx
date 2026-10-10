@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { API_BASE_URL } from "../config";
 import AdminSidebar from "../components/AdminSidebar";
 
@@ -7,27 +6,26 @@ function ManageUsers() {
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [actionLoading, setActionLoading] = useState(null);
 
-  // Current logged in admin info
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
   const collegeName = storedUser.college_name || "College Administration";
 
-  // Modal State for Onboarding New User
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState("");
 
-  // Modal State for Resetting Password
   const [resetModalUser, setResetModalUser] = useState(null);
   const [newPasswordInput, setNewPasswordInput] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
   const [resetError, setResetError] = useState("");
 
-  // New User Form State
+  const [createdCredentials, setCreatedCredentials] = useState(null);
+  const [copied, setCopied] = useState(false);
+
   const [formData, setFormData] = useState({
     full_name: "",
     email: "",
@@ -39,13 +37,6 @@ function ManageUsers() {
     student_or_emp_id: "",
   });
 
-  // Credential Share Modal State (Shown immediately after creation or reset)
-  const [createdCredentials, setCreatedCredentials] = useState(null);
-  const [copied, setCopied] = useState(false);
-
-  // ============================================================
-  // FETCH USERS
-  // ============================================================
   const fetchUsers = async () => {
     try {
       setLoading(true);
@@ -58,10 +49,7 @@ function ManageUsers() {
       }
 
       const response = await fetch(`${API_BASE_URL}/api/admin/users`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       const data = await response.json();
@@ -74,7 +62,7 @@ function ManageUsers() {
       setUsers(data.users || []);
     } catch (err) {
       console.error("Fetch users error:", err);
-      setError("Cannot connect to backend server. Ensure FastAPI is running.");
+      setError("Cannot connect to backend server.");
     } finally {
       setLoading(false);
     }
@@ -84,13 +72,14 @@ function ManageUsers() {
     fetchUsers();
   }, []);
 
-  // Generate random secure password
   const generatePassword = (setter) => {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%";
+    const chars =
+      "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%";
     let pwd = "";
     for (let i = 0; i < 10; i++) {
       pwd += chars.charAt(Math.floor(Math.random() * chars.length));
     }
+
     if (setter) {
       setter(pwd);
     } else {
@@ -98,7 +87,6 @@ function ManageUsers() {
     }
   };
 
-  // Open modal with pre-selected role
   const handleOpenAddModal = (presetRole = "student") => {
     setFormData({
       full_name: "",
@@ -115,12 +103,16 @@ function ManageUsers() {
     generatePassword();
   };
 
-  // Handle User Creation
   const handleCreateUser = async (e) => {
     e.preventDefault();
     setCreateError("");
 
-    if (!formData.full_name || !formData.email || !formData.password || !formData.role) {
+    if (
+      !formData.full_name ||
+      !formData.email ||
+      !formData.password ||
+      !formData.role
+    ) {
       setCreateError("Full name, email, password, and role are required.");
       return;
     }
@@ -144,29 +136,14 @@ function ManageUsers() {
       const data = await response.json();
 
       if (!response.ok) {
-        setCreateError(data.detail || data.message || "Failed to create user account.");
+        setCreateError(data.detail || data.message || "Failed to create account.");
         return;
       }
 
-      // Show shareable credentials
       setCreatedCredentials(data.credentials);
       setShowCreateModal(false);
-      setSuccessMsg(`Account created for ${formData.full_name} (${formData.role.toUpperCase()})! Share credentials below.`);
-
-      // Reset form
-      setFormData({
-        full_name: "",
-        email: "",
-        password: "",
-        role: "student",
-        department: "",
-        phone: "",
-        specialization: "",
-        student_or_emp_id: "",
-      });
-
-      // Refresh table
-      fetchUsers();
+      setSuccessMsg(`Account created for ${formData.full_name}.`);
+      await fetchUsers();
     } catch (err) {
       console.error("Create user error:", err);
       setCreateError("Network error while creating account.");
@@ -175,18 +152,139 @@ function ManageUsers() {
     }
   };
 
-  // Handle Password Reset by Admin
-  const handleOpenResetModal = (user) => {
-    setResetModalUser(user);
-    setResetError("");
-    generatePassword(setNewPasswordInput);
+  const handleApproveUser = async (user) => {
+    if (
+      !window.confirm(`Approve registration for ${user.full_name}?`)
+    ) {
+      return;
+    }
+
+    try {
+      setActionLoading(user.id);
+      const token = localStorage.getItem("token");
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/users/${user.id}/approve`,
+        {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.detail || "Failed to approve account.");
+        return;
+      }
+
+      setSuccessMsg(data.message || "Account approved successfully.");
+      await fetchUsers();
+    } catch (err) {
+      console.error("Approve error:", err);
+      alert("Unable to connect to the backend.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRejectUser = async (user) => {
+    if (!window.confirm(`Reject registration for ${user.full_name}?`)) {
+      return;
+    }
+
+    try {
+      setActionLoading(user.id);
+      const token = localStorage.getItem("token");
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/users/${user.id}/reject`,
+        {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.detail || "Failed to reject account.");
+        return;
+      }
+
+      setSuccessMsg(data.message || "Registration rejected.");
+      await fetchUsers();
+    } catch (err) {
+      console.error("Reject error:", err);
+      alert("Unable to connect to the backend.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleToggleStatus = async (user) => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/users/${user.id}/toggle-status`,
+        {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const data = await response.json();
+      if (!response.ok) {
+        alert(data.detail || "Failed to update account status.");
+        return;
+      }
+
+      setSuccessMsg(data.message);
+      await fetchUsers();
+    } catch (err) {
+      console.error("Toggle status error:", err);
+      alert("Unable to connect to the backend.");
+    }
+  };
+
+  const handleDeleteUser = async (user) => {
+    if (
+      !window.confirm(
+        `Are you sure you want to delete ${user.full_name} (${user.role})?`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/users/${user.id}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const data = await response.json();
+      if (!response.ok) {
+        alert(data.detail || "Failed to delete user.");
+        return;
+      }
+
+      setSuccessMsg(`User ${user.full_name} was deleted.`);
+      await fetchUsers();
+    } catch (err) {
+      console.error("Delete error:", err);
+      alert("Unable to connect to the backend.");
+    }
   };
 
   const handleExecuteResetPassword = async (e) => {
     e.preventDefault();
     if (!resetModalUser) return;
-    setResetError("");
 
+    setResetError("");
     if (!newPasswordInput || newPasswordInput.length < 6) {
       setResetError("Password must be at least 6 characters.");
       return;
@@ -196,93 +294,41 @@ function ManageUsers() {
       setResetLoading(true);
       const token = localStorage.getItem("token");
 
-      const response = await fetch(`${API_BASE_URL}/api/admin/users/${resetModalUser.id}/reset-password`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          new_password: newPasswordInput,
-        }),
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/users/${resetModalUser.id}/reset-password`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ new_password: newPasswordInput }),
+        }
+      );
 
       const data = await response.json();
-
       if (!response.ok) {
-        setResetError(data.detail || data.message || "Failed to reset password.");
+        setResetError(data.detail || "Failed to reset password.");
         return;
       }
 
       setResetModalUser(null);
       setCreatedCredentials(data.credentials);
-      setSuccessMsg(`Password successfully reset for ${resetModalUser.full_name}!`);
+      setSuccessMsg(`Password reset for ${resetModalUser.full_name}.`);
     } catch (err) {
       console.error("Reset password error:", err);
-      setResetError("Network error while updating password.");
+      setResetError("Unable to connect to the backend.");
     } finally {
       setResetLoading(false);
     }
   };
 
-  // Handle User Status Toggle
-  const handleToggleStatus = async (user) => {
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_BASE_URL}/api/admin/users/${user.id}/toggle-status`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        alert(data.detail || data.message || "Failed to toggle status.");
-        return;
-      }
-
-      setSuccessMsg(data.message);
-      fetchUsers();
-    } catch (err) {
-      console.error("Toggle status error:", err);
-    }
-  };
-
-  // Handle User Deletion
-  const handleDeleteUser = async (user) => {
-    if (!window.confirm(`Are you sure you want to delete ${user.full_name} (${user.role})?`)) {
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_BASE_URL}/api/admin/users/${user.id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        alert(data.detail || data.message || "Failed to delete user.");
-        return;
-      }
-
-      setSuccessMsg(`User ${user.full_name} was deleted successfully.`);
-      fetchUsers();
-    } catch (err) {
-      console.error("Delete user error:", err);
-    }
-  };
-
-  // Copy Credentials to Clipboard
   const copyCredentials = () => {
     if (!createdCredentials) return;
+
     const textToCopy =
       createdCredentials.share_message ||
-      `🏛️ ${collegeName} — CampusFix Pro Account:\nRole: ${createdCredentials.role}\nName: ${createdCredentials.full_name}\nLogin Email: ${createdCredentials.email}\nPassword: ${createdCredentials.password}\nPortal URL: ${window.location.origin}/login`;
+      `College: ${collegeName}\nRole: ${createdCredentials.role}\nName: ${createdCredentials.full_name}\nEmail: ${createdCredentials.email}\nPassword: ${createdCredentials.password}\nLogin: ${window.location.origin}/login`;
 
     navigator.clipboard.writeText(textToCopy).then(() => {
       setCopied(true);
@@ -290,26 +336,24 @@ function ManageUsers() {
     });
   };
 
-  // ============================================================
-  // FILTER USERS
-  // ============================================================
   const filteredUsers = users.filter((user) => {
-    // Defense-in-depth: Never show accounts from other colleges
     if (
       storedUser.college_name &&
       user.college_name &&
-      user.college_name.trim().toLowerCase() !== storedUser.college_name.trim().toLowerCase()
+      user.college_name.trim().toLowerCase() !==
+        storedUser.college_name.trim().toLowerCase()
     ) {
       return false;
     }
 
-    const searchText = search.toLowerCase().trim();
-    const matchesSearch =
-      String(user.full_name || "").toLowerCase().includes(searchText) ||
-      String(user.email || "").toLowerCase().includes(searchText) ||
-      String(user.department || "").toLowerCase().includes(searchText) ||
-      String(user.role || "").toLowerCase().includes(searchText) ||
-      String(user.student_or_emp_id || "").toLowerCase().includes(searchText);
+    const term = search.toLowerCase().trim();
+    const matchesSearch = [
+      user.full_name,
+      user.email,
+      user.department,
+      user.role,
+      user.student_or_emp_id,
+    ].some((value) => String(value || "").toLowerCase().includes(term));
 
     const matchesRole =
       roleFilter === "All" ||
@@ -318,21 +362,31 @@ function ManageUsers() {
     return matchesSearch && matchesRole;
   });
 
-  const totalUsers = users.length;
+  const pendingCount = users.filter(
+    (u) =>
+      ["student", "faculty"].includes(u.role) &&
+      u.approval_status === "pending"
+  ).length;
+
   const totalStudents = users.filter((u) => u.role === "student").length;
   const totalFaculty = users.filter((u) => u.role === "faculty").length;
   const totalTechnicians = users.filter((u) => u.role === "technician").length;
   const totalAdmins = users.filter((u) => u.role === "admin").length;
 
-  const formatDate = (dateValue) => {
-    if (!dateValue) return "-";
-    const date = new Date(dateValue);
-    if (isNaN(date.getTime())) return dateValue;
-    return date.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+  const formatDate = (value) => {
+    if (!value) return "-";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? value
+      : date.toLocaleDateString("en-IN");
+  };
+
+  const actionButtonStyle = {
+    padding: "5px 8px",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontSize: "12px",
+    fontWeight: 600,
   };
 
   return (
@@ -340,354 +394,251 @@ function ManageUsers() {
       <AdminSidebar />
 
       <main className="dashboard-main">
-        {/* HEADER */}
-        <header className="dashboard-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <header className="dashboard-header">
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
-              <span className="role-badge admin">🏛️ {collegeName}</span>
-              <span style={{ color: "var(--cf-lime)", fontSize: "13px", fontWeight: "600" }}>• Institutional Console</span>
-            </div>
-            <h1>Campus User Provisioning</h1>
-            <p>
-              Add Technicians, Students, and Faculty with their email and password, provide credentials, and manage accounts.
-            </p>
+            <span className="role-badge admin">🏛️ {collegeName}</span>
+            <h1>Manage Campus Users</h1>
+            <p>Review registrations and manage accounts for your college.</p>
           </div>
 
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-            <button
-              onClick={() => handleOpenAddModal("technician")}
-              className="onboard-btn"
-              style={{
-                background: "rgba(163, 230, 53, 0.15)",
-                border: "1px solid var(--cf-lime)",
-                color: "var(--cf-lime)",
-                padding: "10px 16px",
-                fontSize: "13px",
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                cursor: "pointer",
-                borderRadius: "8px",
-              }}
-            >
-              <span>🛠️</span> + Add Technician
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button className="onboard-btn" onClick={() => handleOpenAddModal("technician")}>
+              + Add Technician
             </button>
-
-            <button
-              onClick={() => handleOpenAddModal("faculty")}
-              className="onboard-btn"
-              style={{
-                background: "rgba(163, 230, 53, 0.15)",
-                border: "1px solid var(--cf-lime)",
-                color: "var(--cf-lime)",
-                padding: "10px 16px",
-                fontSize: "13px",
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                cursor: "pointer",
-                borderRadius: "8px",
-              }}
-            >
-              <span>👩‍🏫</span> + Add Faculty
+            <button className="onboard-btn" onClick={() => handleOpenAddModal("faculty")}>
+              + Add Faculty
             </button>
-
-            <button
-              onClick={() => handleOpenAddModal("student")}
-              className="onboard-btn"
-              style={{
-                background: "rgba(163, 230, 53, 0.15)",
-                border: "1px solid var(--cf-lime)",
-                color: "var(--cf-lime)",
-                padding: "10px 16px",
-                fontSize: "13px",
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                cursor: "pointer",
-                borderRadius: "8px",
-              }}
-            >
-              <span>🎓</span> + Add Student
-            </button>
-
-            <button
-              onClick={() => handleOpenAddModal("student")}
-              className="onboard-btn"
-              style={{ padding: "10px 20px", fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}
-            >
-              <span>➕</span> Onboard Member
+            <button className="onboard-btn" onClick={() => handleOpenAddModal("student")}>
+              + Add Student
             </button>
           </div>
         </header>
 
-        {error && <div className="notification-error" style={{ margin: "15px 0" }}>⚠️ {error}</div>}
+        {error && <div className="notification-error">⚠️ {error}</div>}
+
         {successMsg && (
-          <div
-            className="notification-success"
-            style={{
-              background: "rgba(163, 230, 53, 0.15)",
-              border: "1px solid var(--cf-lime)",
-              color: "var(--cf-lime)",
-              padding: "12px 18px",
-              borderRadius: "10px",
-              margin: "15px 0",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
+          <div className="notification-success" style={{ margin: "15px 0" }}>
             <span>✅ {successMsg}</span>
-            <button
-              onClick={() => setSuccessMsg("")}
-              style={{ background: "none", border: "none", color: "var(--cf-lime)", cursor: "pointer", fontSize: "16px" }}
-            >
-              ✕
-            </button>
+            <button onClick={() => setSuccessMsg("")}>✕</button>
           </div>
         )}
 
-        {/* STATISTICS */}
-        <section className="stats-grid" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
+        <section className="stats-grid">
           <div className="stat-card">
-            <span className="stat-icon">👥</span>
-            <div>
-              <h3>{totalUsers}</h3>
-              <p>Total Members</p>
-            </div>
+            <h3>{users.length}</h3>
+            <p>Total Members</p>
           </div>
-
-          <div className="stat-card" style={{ cursor: "pointer" }} onClick={() => setRoleFilter("technician")}>
-            <span className="stat-icon">🛠️</span>
-            <div>
-              <h3>{totalTechnicians}</h3>
-              <p>Technicians</p>
-            </div>
+          <div className="stat-card">
+            <h3>{pendingCount}</h3>
+            <p>Pending Approvals</p>
           </div>
-
-          <div className="stat-card" style={{ cursor: "pointer" }} onClick={() => setRoleFilter("faculty")}>
-            <span className="stat-icon">👩‍🏫</span>
-            <div>
-              <h3>{totalFaculty}</h3>
-              <p>Faculty Members</p>
-            </div>
+          <div className="stat-card">
+            <h3>{totalStudents}</h3>
+            <p>Students</p>
           </div>
-
-          <div className="stat-card" style={{ cursor: "pointer" }} onClick={() => setRoleFilter("student")}>
-            <span className="stat-icon">🎓</span>
-            <div>
-              <h3>{totalStudents}</h3>
-              <p>Students</p>
-            </div>
+          <div className="stat-card">
+            <h3>{totalFaculty}</h3>
+            <p>Faculty</p>
           </div>
-
-          <div className="stat-card" style={{ cursor: "pointer" }} onClick={() => setRoleFilter("admin")}>
-            <span className="stat-icon">👑</span>
-            <div>
-              <h3>{totalAdmins}</h3>
-              <p>College Admins</p>
-            </div>
+          <div className="stat-card">
+            <h3>{totalTechnicians}</h3>
+            <p>Technicians</p>
           </div>
         </section>
 
-        {/* USERS TABLE SECTION */}
         <section className="manage-users-section">
           <div className="users-toolbar">
             <div>
               <h2>Registered Campus Members</h2>
-              <p>These accounts are provisioned by your college. Use Actions to reset passwords or manage access.</p>
+              <p>Pending students and faculty require approval before login.</p>
             </div>
 
             <div className="users-filter-controls">
               <input
                 type="text"
-                placeholder="🔎 Search by name, email, department, ID..."
+                placeholder="Search name, email, department, ID..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
 
-              <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
-                <option value="All">All Roles ({totalUsers})</option>
-                <option value="technician">🛠️ Technicians ({totalTechnicians})</option>
-                <option value="student">🎓 Students ({totalStudents})</option>
-                <option value="faculty">👩‍🏫 Faculty ({totalFaculty})</option>
-                <option value="admin">👑 Administrators ({totalAdmins})</option>
+              <select
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+              >
+                <option value="All">All Roles</option>
+                <option value="student">Students</option>
+                <option value="faculty">Faculty</option>
+                <option value="technician">Technicians</option>
+                <option value="admin">Administrators</option>
               </select>
             </div>
           </div>
 
-          {!loading && (
-            <div className="users-result-count" style={{ color: "var(--cf-muted)", margin: "10px 0" }}>
-              Showing <strong>{filteredUsers.length}</strong> of <strong>{users.length}</strong> campus accounts
-            </div>
-          )}
-
           {loading ? (
-            <div className="users-loading" style={{ padding: "40px", textAlign: "center" }}>
-              <div className="loading-spinner"></div>
-              <p>Loading campus members...</p>
-            </div>
+            <p>Loading campus members...</p>
           ) : (
             <div className="users-table-wrapper">
               <table className="users-table">
                 <thead>
                   <tr>
-                    <th>User & ID</th>
-                    <th>Email Address</th>
+                    <th>User</th>
+                    <th>Email</th>
                     <th>Role</th>
-                    <th>Department / Specialization</th>
-                    <th>Contact Phone</th>
-                    <th>Status</th>
-                    <th style={{ textAlign: "center" }}>Actions</th>
+                    <th>Department</th>
+                    <th>Phone</th>
+                    <th>Approval / Status</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
+
                 <tbody>
-                  {filteredUsers.map((user) => (
-                    <tr key={user.id}>
-                      <td>
-                        <div className="user-name-cell">
-                          <div
-                            className="user-avatar"
-                            style={{
-                              background: "rgba(163, 230, 53, 0.15)",
-                              color: "var(--cf-lime)",
-                              border: "1px solid var(--cf-lime)",
-                            }}
-                          >
-                            {user.full_name?.charAt(0).toUpperCase() || "U"}
-                          </div>
-                          <div>
-                            <strong style={{ color: "#ffffff" }}>{user.full_name || "Unknown User"}</strong>
-                            <small style={{ color: "var(--cf-muted)", display: "block" }}>
-                              {user.student_or_emp_id ? `ID: ${user.student_or_emp_id}` : `DB #${user.id}`}
-                            </small>
-                          </div>
-                        </div>
-                      </td>
+                  {filteredUsers.map((user) => {
+                    const approvalStatus = user.approval_status || "approved";
+                    const isPending =
+                      ["student", "faculty"].includes(user.role) &&
+                      approvalStatus === "pending";
+                    const isRejected = approvalStatus === "rejected";
 
-                      <td style={{ color: "#e2e8f0" }}>{user.email || "-"}</td>
-
-                      <td>
-                        <span className={`role-badge ${user.role}`}>
-                          {user.role === "admin" && "👑 Admin"}
-                          {user.role === "technician" && "🛠️ Tech"}
-                          {user.role === "faculty" && "👩‍🏫 Faculty"}
-                          {user.role === "student" && "🎓 Student"}
-                        </span>
-                      </td>
-
-                      <td>
-                        <span style={{ color: "#ffffff" }}>{user.department || "-"}</span>
-                        {user.specialization && (
-                          <small style={{ display: "block", color: "var(--cf-muted)" }}>
-                            ({user.specialization})
+                    return (
+                      <tr key={user.id}>
+                        <td>
+                          <strong>{user.full_name || "Unknown"}</strong>
+                          <small style={{ display: "block" }}>
+                            {user.student_or_emp_id || `DB #${user.id}`}
                           </small>
-                        )}
-                      </td>
+                        </td>
+                        <td>{user.email}</td>
+                        <td>{user.role}</td>
+                        <td>{user.department || "-"}</td>
+                        <td>{user.phone || "-"}</td>
 
-                      <td style={{ color: "var(--cf-muted)" }}>{user.phone || "-"}</td>
-
-                      <td>
-                        <span
-                          style={{
-                            display: "inline-block",
-                            padding: "3px 8px",
-                            borderRadius: "12px",
-                            fontSize: "12px",
-                            fontWeight: "600",
-                            background: user.is_active ? "rgba(163, 230, 53, 0.15)" : "rgba(239, 68, 68, 0.15)",
-                            color: user.is_active ? "var(--cf-lime)" : "#f87171",
-                            border: `1px solid ${user.is_active ? "var(--cf-lime)" : "#ef4444"}`,
-                          }}
-                        >
-                          {user.is_active ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-
-                      <td style={{ textAlign: "center" }}>
-                        {user.role === "admin" ? (
+                        <td>
                           <span
                             style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "4px",
-                              padding: "4px 10px",
-                              borderRadius: "6px",
-                              fontSize: "12px",
-                              fontWeight: "600",
-                              background: "rgba(163, 230, 53, 0.1)",
-                              color: "var(--cf-lime)",
-                              border: "1px solid rgba(163, 230, 53, 0.3)",
+                              padding: "4px 8px",
+                              borderRadius: 12,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              display: "inline-block",
+                              color: isPending
+                                ? "#facc15"
+                                : isRejected
+                                ? "#f87171"
+                                : user.is_active
+                                ? "#4ade80"
+                                : "#94a3b8",
+                              background: isPending
+                                ? "rgba(250,204,21,0.12)"
+                                : isRejected
+                                ? "rgba(239,68,68,0.12)"
+                                : "rgba(148,163,184,0.12)",
+                              border: `1px solid ${
+                                isPending
+                                  ? "#facc15"
+                                  : isRejected
+                                  ? "#ef4444"
+                                  : user.is_active
+                                  ? "#22c55e"
+                                  : "#64748b"
+                              }`,
                             }}
                           >
-                            👑 {user.id === storedUser.id ? "Primary Admin (You)" : "College Admin"}
+                            {isPending
+                              ? "Pending Approval"
+                              : isRejected
+                              ? "Rejected"
+                              : user.is_active
+                              ? "Active"
+                              : "Inactive"}
                           </span>
-                        ) : (
-                          <div style={{ display: "inline-flex", gap: "6px", alignItems: "center" }}>
-                            {/* Reset Password */}
-                            <button
-                              onClick={() => handleOpenResetModal(user)}
-                              title="Reset password and provide new login credentials"
-                              style={{
-                                background: "rgba(163, 230, 53, 0.12)",
-                                border: "1px solid var(--cf-lime)",
-                                color: "var(--cf-lime)",
-                                padding: "4px 8px",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                fontSize: "12px",
-                              }}
-                            >
-                              🔑 Pass
-                            </button>
+                        </td>
 
-                            {/* Toggle Active Status */}
-                            <button
-                              onClick={() => handleToggleStatus(user)}
-                              title={user.is_active ? "Deactivate account" : "Activate account"}
-                              style={{
-                                background: user.is_active ? "rgba(234, 179, 8, 0.15)" : "rgba(163, 230, 53, 0.15)",
-                                border: `1px solid ${user.is_active ? "#eab308" : "var(--cf-lime)"}`,
-                                color: user.is_active ? "#fde047" : "var(--cf-lime)",
-                                padding: "4px 8px",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                fontSize: "12px",
-                              }}
-                            >
-                              {user.is_active ? "⏸️" : "▶️"}
-                            </button>
+                        <td>
+                          {user.role === "admin" ? (
+                            <span>College Admin</span>
+                          ) : (
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              {isPending && (
+                                <>
+                                  <button
+                                    disabled={actionLoading === user.id}
+                                    onClick={() => handleApproveUser(user)}
+                                    style={{
+                                      ...actionButtonStyle,
+                                      background: "#14532d",
+                                      color: "#bbf7d0",
+                                      border: "1px solid #22c55e",
+                                    }}
+                                  >
+                                    {actionLoading === user.id ? "Please wait..." : "✅ Approve"}
+                                  </button>
+                                  <button
+                                    disabled={actionLoading === user.id}
+                                    onClick={() => handleRejectUser(user)}
+                                    style={{
+                                      ...actionButtonStyle,
+                                      background: "#7f1d1d",
+                                      color: "#fecaca",
+                                      border: "1px solid #ef4444",
+                                    }}
+                                  >
+                                    ❌ Reject
+                                  </button>
+                                </>
+                              )}
 
-                            {/* Delete */}
-                            <button
-                              onClick={() => handleDeleteUser(user)}
-                              title="Delete member account"
-                              style={{
-                                background: "rgba(239, 68, 68, 0.15)",
-                                border: "1px solid #ef4444",
-                                color: "#f87171",
-                                padding: "4px 8px",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                                fontSize: "12px",
-                              }}
-                            >
-                              🗑️
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                              <button
+                                onClick={() => {
+                                  setResetModalUser(user);
+                                  setResetError("");
+                                  generatePassword(setNewPasswordInput);
+                                }}
+                                style={{
+                                  ...actionButtonStyle,
+                                  background: "rgba(163,230,53,0.12)",
+                                  border: "1px solid #a3e635",
+                                  color: "#a3e635",
+                                }}
+                              >
+                                🔑 Password
+                              </button>
+
+                              {!isPending && (
+                                <button
+                                  onClick={() => handleToggleStatus(user)}
+                                  style={{
+                                    ...actionButtonStyle,
+                                    background: "transparent",
+                                    border: "1px solid #94a3b8",
+                                    color: "#e2e8f0",
+                                  }}
+                                >
+                                  {user.is_active ? "Deactivate" : "Activate"}
+                                </button>
+                              )}
+
+                              <button
+                                onClick={() => handleDeleteUser(user)}
+                                style={{
+                                  ...actionButtonStyle,
+                                  background: "rgba(239,68,68,0.12)",
+                                  border: "1px solid #ef4444",
+                                  color: "#f87171",
+                                }}
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
 
                   {filteredUsers.length === 0 && (
                     <tr>
-                      <td colSpan="7" className="empty-users" style={{ textAlign: "center", padding: "40px" }}>
-                        <div>
-                          <span style={{ fontSize: "36px" }}>👥</span>
-                          <strong style={{ display: "block", margin: "10px 0" }}>No members match your criteria</strong>
-                          <p style={{ color: "var(--cf-muted)" }}>Try adjusting your search query or role filter.</p>
-                        </div>
+                      <td colSpan="7" style={{ textAlign: "center", padding: 30 }}>
+                        No users match your search or filter.
                       </td>
                     </tr>
                   )}
@@ -696,346 +647,162 @@ function ManageUsers() {
             </div>
           )}
         </section>
-      </main>
 
-      {/* ============================================================
-          MODAL 1: CREATE & ONBOARD USER
-      ============================================================ */}
-      {showCreateModal && (
-        <div className="credentials-modal-overlay">
-          <div className="credentials-modal" style={{ maxWidth: "600px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--cf-border)", paddingBottom: "15px" }}>
-              <h2 style={{ margin: 0, color: "var(--cf-lime)", display: "flex", alignItems: "center", gap: "10px" }}>
-                <span>🛡️</span> Add Member to {collegeName}
-              </h2>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: "20px" }}
-              >
-                ✕
-              </button>
-            </div>
+        {showCreateModal && (
+          <div className="credentials-modal-overlay">
+            <div className="credentials-modal" style={{ maxWidth: 560 }}>
+              <h2>Add Member to {collegeName}</h2>
+              {createError && <p className="notification-error">{createError}</p>}
 
-            <p style={{ color: "var(--cf-muted)", fontSize: "14px", margin: "12px 0 16px 0" }}>
-              Create an account for a <strong>Technician</strong>, <strong>Student</strong>, or <strong>Faculty</strong>.
-              Enter their email and set a password. After creating, you will get a copyable credentials card to share with them so they can log in.
-            </p>
+              <form onSubmit={handleCreateUser}>
+                <label>Role</label>
+                <select
+                  value={formData.role}
+                  onChange={(e) =>
+                    setFormData({ ...formData, role: e.target.value })
+                  }
+                >
+                  <option value="student">Student</option>
+                  <option value="faculty">Faculty</option>
+                  <option value="technician">Technician</option>
+                </select>
 
-            {createError && (
-              <div style={{ background: "rgba(239, 68, 68, 0.15)", border: "1px solid #ef4444", color: "#fca5a5", padding: "10px", borderRadius: "8px", marginBottom: "15px", fontSize: "13px" }}>
-                ⚠️ {createError}
-              </div>
-            )}
+                <label>Full Name</label>
+                <input
+                  value={formData.full_name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, full_name: e.target.value })
+                  }
+                  required
+                />
 
-            <form onSubmit={handleCreateUser}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
-                {/* Role */}
-                <div style={{ gridColumn: "span 2" }}>
-                  <label style={{ display: "block", marginBottom: "6px", fontSize: "13px", color: "var(--cf-muted)" }}>
-                    Account Role *
-                  </label>
-                  <select
-                    value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    style={{ width: "100%", padding: "10px", background: "#05120a", border: "1px solid var(--cf-border)", color: "#ffffff", borderRadius: "8px" }}
-                  >
-                    <option value="technician">🛠️ Campus Technician (Works on repair orders, logs status)</option>
-                    <option value="student">🎓 Student (Raises issues, tracks ticket status, FixBot AI)</option>
-                    <option value="faculty">👩‍🏫 Faculty Member (Lab & departmental issues, priority alerts)</option>
-                    <option value="admin">👑 Secondary College Admin (System oversight, assignments)</option>
-                  </select>
-                </div>
+                <label>Email</label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
+                  required
+                />
 
-                {/* Full Name */}
-                <div>
-                  <label style={{ display: "block", marginBottom: "6px", fontSize: "13px", color: "var(--cf-muted)" }}>
-                    Full Name *
-                  </label>
+                <label>Password</label>
+                <div style={{ display: "flex", gap: 8 }}>
                   <input
-                    type="text"
-                    placeholder="e.g. Ramesh Kumar"
-                    value={formData.full_name}
-                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                    required
-                    style={{ width: "100%", padding: "10px", background: "#05120a", border: "1px solid var(--cf-border)", color: "#ffffff", borderRadius: "8px" }}
-                  />
-                </div>
-
-                {/* Email */}
-                <div>
-                  <label style={{ display: "block", marginBottom: "6px", fontSize: "13px", color: "var(--cf-muted)" }}>
-                    Login Email Address *
-                  </label>
-                  <input
-                    type="email"
-                    placeholder="e.g. ramesh@college.edu"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    required
-                    style={{ width: "100%", padding: "10px", background: "#05120a", border: "1px solid var(--cf-border)", color: "#ffffff", borderRadius: "8px" }}
-                  />
-                </div>
-
-                {/* Password with generator */}
-                <div style={{ gridColumn: "span 2" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                    <label style={{ fontSize: "13px", color: "var(--cf-muted)" }}>
-                      Assigned Password (to provide user for login) *
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => generatePassword()}
-                      style={{ background: "rgba(163, 230, 53, 0.15)", border: "1px solid var(--cf-lime)", color: "var(--cf-lime)", padding: "3px 10px", borderRadius: "6px", fontSize: "12px", cursor: "pointer" }}
-                    >
-                      ⚡ Auto-Generate
-                    </button>
-                  </div>
-                  <input
-                    type="text"
                     value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, password: e.target.value })
+                    }
                     required
-                    style={{ width: "100%", padding: "10px", background: "#05120a", border: "1px solid var(--cf-border)", color: "#ffffff", borderRadius: "8px", fontFamily: "monospace" }}
                   />
+                  <button type="button" onClick={() => generatePassword()}>
+                    Generate
+                  </button>
                 </div>
 
-                {/* Department */}
-                <div>
-                  <label style={{ display: "block", marginBottom: "6px", fontSize: "13px", color: "var(--cf-muted)" }}>
-                    Department / Trade
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Facilities, CS, Electrical"
-                    value={formData.department}
-                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    style={{ width: "100%", padding: "10px", background: "#05120a", border: "1px solid var(--cf-border)", color: "#ffffff", borderRadius: "8px" }}
-                  />
+                <label>Department</label>
+                <input
+                  value={formData.department}
+                  onChange={(e) =>
+                    setFormData({ ...formData, department: e.target.value })
+                  }
+                />
+
+                <label>Phone</label>
+                <input
+                  value={formData.phone}
+                  onChange={(e) =>
+                    setFormData({ ...formData, phone: e.target.value })
+                  }
+                />
+
+                <label>Student / Employee ID</label>
+                <input
+                  value={formData.student_or_emp_id}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      student_or_emp_id: e.target.value,
+                    })
+                  }
+                />
+
+                <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={createLoading}>
+                    {createLoading ? "Creating..." : "Create Account"}
+                  </button>
                 </div>
-
-                {/* Phone */}
-                <div>
-                  <label style={{ display: "block", marginBottom: "6px", fontSize: "13px", color: "var(--cf-muted)" }}>
-                    Phone Number
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="+91 98765 43210"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    style={{ width: "100%", padding: "10px", background: "#05120a", border: "1px solid var(--cf-border)", color: "#ffffff", borderRadius: "8px" }}
-                  />
-                </div>
-
-                {/* Specialization / ID */}
-                <div style={{ gridColumn: "span 2" }}>
-                  <label style={{ display: "block", marginBottom: "6px", fontSize: "13px", color: "var(--cf-muted)" }}>
-                    {formData.role === "technician" ? "Technician Specialization (e.g. Electrical, Plumbing, AV)" : "Student Roll No. / Employee ID"}
-                  </label>
-                  <input
-                    type="text"
-                    placeholder={formData.role === "technician" ? "Plumbing, Electrical, Audio-Visual" : "e.g. STU-2024-041"}
-                    value={formData.role === "technician" ? formData.specialization : formData.student_or_emp_id}
-                    onChange={(e) => {
-                      if (formData.role === "technician") {
-                        setFormData({ ...formData, specialization: e.target.value });
-                      } else {
-                        setFormData({ ...formData, student_or_emp_id: e.target.value });
-                      }
-                    }}
-                    style={{ width: "100%", padding: "10px", background: "#05120a", border: "1px solid var(--cf-border)", color: "#ffffff", borderRadius: "8px" }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "24px" }}>
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  style={{ padding: "10px 18px", background: "transparent", border: "1px solid var(--cf-border)", color: "#ffffff", borderRadius: "8px", cursor: "pointer" }}
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={createLoading}
-                  className="btn-primary"
-                  style={{ padding: "10px 24px" }}
-                >
-                  {createLoading ? "Provisioning..." : "Create Account & Get Credentials 🚀"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ============================================================
-          MODAL 2: RESET PASSWORD MODAL
-      ============================================================ */}
-      {resetModalUser && (
-        <div className="credentials-modal-overlay">
-          <div className="credentials-modal" style={{ maxWidth: "480px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--cf-border)", paddingBottom: "12px" }}>
-              <h2 style={{ margin: 0, color: "var(--cf-lime)", display: "flex", alignItems: "center", gap: "8px", fontSize: "18px" }}>
-                <span>🔑</span> Reset Password
-              </h2>
-              <button
-                onClick={() => setResetModalUser(null)}
-                style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: "20px" }}
-              >
-                ✕
-              </button>
+              </form>
             </div>
+          </div>
+        )}
 
-            <p style={{ color: "var(--cf-muted)", fontSize: "13px", margin: "12px 0 16px 0" }}>
-              Reset login password for <strong>{resetModalUser.full_name}</strong> ({resetModalUser.role.toUpperCase()}).
-              You can provide this new password to them.
-            </p>
+        {resetModalUser && (
+          <div className="credentials-modal-overlay">
+            <div className="credentials-modal" style={{ maxWidth: 480 }}>
+              <h2>Reset Password</h2>
+              <p>
+                Reset password for <strong>{resetModalUser.full_name}</strong>
+              </p>
+              {resetError && <p className="notification-error">{resetError}</p>}
 
-            {resetError && (
-              <div style={{ background: "rgba(239, 68, 68, 0.15)", border: "1px solid #ef4444", color: "#fca5a5", padding: "10px", borderRadius: "8px", marginBottom: "12px", fontSize: "13px" }}>
-                ⚠️ {resetError}
-              </div>
-            )}
-
-            <form onSubmit={handleExecuteResetPassword}>
-              <div style={{ marginBottom: "16px" }}>
-                <label style={{ display: "block", marginBottom: "6px", fontSize: "13px", color: "var(--cf-muted)" }}>
-                  User Email: <span style={{ color: "#ffffff" }}>{resetModalUser.email}</span>
-                </label>
-              </div>
-
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                  <label style={{ fontSize: "13px", color: "var(--cf-muted)" }}>New Password *</label>
+              <form onSubmit={handleExecuteResetPassword}>
+                <label>New Password</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    value={newPasswordInput}
+                    onChange={(e) => setNewPasswordInput(e.target.value)}
+                    required
+                  />
                   <button
                     type="button"
                     onClick={() => generatePassword(setNewPasswordInput)}
-                    style={{ background: "rgba(163, 230, 53, 0.15)", border: "1px solid var(--cf-lime)", color: "var(--cf-lime)", padding: "2px 8px", borderRadius: "6px", fontSize: "11px", cursor: "pointer" }}
                   >
-                    ⚡ Auto-Generate
+                    Generate
                   </button>
                 </div>
-                <input
-                  type="text"
-                  value={newPasswordInput}
-                  onChange={(e) => setNewPasswordInput(e.target.value)}
-                  required
-                  style={{ width: "100%", padding: "10px", background: "#05120a", border: "1px solid var(--cf-border)", color: "#ffffff", borderRadius: "8px", fontFamily: "monospace" }}
-                />
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "20px" }}>
-                <button
-                  type="button"
-                  onClick={() => setResetModalUser(null)}
-                  style={{ padding: "8px 16px", background: "transparent", border: "1px solid var(--cf-border)", color: "#ffffff", borderRadius: "8px", cursor: "pointer" }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={resetLoading}
-                  className="btn-primary"
-                  style={{ padding: "8px 20px" }}
-                >
-                  {resetLoading ? "Updating..." : "Save & Share Credentials 🔑"}
-                </button>
-              </div>
-            </form>
+                <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+                  <button
+                    type="button"
+                    onClick={() => setResetModalUser(null)}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={resetLoading}>
+                    {resetLoading ? "Saving..." : "Save Password"}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ============================================================
-          MODAL 3: CREDENTIALS GENERATED & READY TO SHARE
-      ============================================================ */}
-      {createdCredentials && (
-        <div className="credentials-modal-overlay">
-          <div className="credentials-modal">
-            <div style={{ textAlign: "center", marginBottom: "15px" }}>
-              <span style={{ fontSize: "42px" }}>🎉</span>
-              <h2 style={{ color: "var(--cf-lime)", margin: "10px 0 5px 0" }}>
-                Credentials Ready to Share!
-              </h2>
-              <p style={{ color: "var(--cf-muted)", fontSize: "14px" }}>
-                Provide these login details to the member so they can sign in to their portal.
+        {createdCredentials && (
+          <div className="credentials-modal-overlay">
+            <div className="credentials-modal">
+              <h2>Account Credentials</h2>
+              <p>
+                <strong>College:</strong> {createdCredentials.college_name || collegeName}
               </p>
-            </div>
+              <p><strong>Name:</strong> {createdCredentials.full_name}</p>
+              <p><strong>Email:</strong> {createdCredentials.email}</p>
+              <p><strong>Role:</strong> {createdCredentials.role}</p>
+              <p><strong>Password:</strong> {createdCredentials.password}</p>
 
-            <div className="credentials-card-box">
-              <div className="cred-row">
-                <span className="cred-label">College / Institution:</span>
-                <span className="cred-val" style={{ color: "#ffffff" }}>
-                  {createdCredentials.college_name || collegeName}
-                </span>
-              </div>
-
-              <div className="cred-row">
-                <span className="cred-label">Assigned Role:</span>
-                <span className="cred-val" style={{ textTransform: "capitalize", color: "var(--cf-lime)" }}>
-                  {createdCredentials.role}
-                </span>
-              </div>
-
-              <div className="cred-row">
-                <span className="cred-label">Full Name:</span>
-                <span className="cred-val">{createdCredentials.full_name}</span>
-              </div>
-
-              <div className="cred-row">
-                <span className="cred-label">Login Email:</span>
-                <span className="cred-val">{createdCredentials.email}</span>
-              </div>
-
-              <div className="cred-row">
-                <span className="cred-label">Password:</span>
-                <span className="cred-val" style={{ letterSpacing: "1px", color: "var(--cf-lime)", fontWeight: "bold" }}>
-                  {createdCredentials.password}
-                </span>
-              </div>
-
-              <div className="cred-row">
-                <span className="cred-label">Portal Sign In:</span>
-                <span className="cred-val">{window.location.origin}/login</span>
-              </div>
-            </div>
-
-            <div className="cred-share-actions">
-              <button onClick={copyCredentials} className="share-btn-copy">
-                {copied ? "✅ Copied to Clipboard!" : "📋 Copy All Login Credentials"}
+              <button onClick={copyCredentials}>
+                {copied ? "Copied!" : "Copy Credentials"}
               </button>
-
-              <a
-                href={`mailto:${createdCredentials.email}?subject=${encodeURIComponent(`Your ${collegeName} Login Credentials`)}&body=${encodeURIComponent(createdCredentials.share_message || "")}`}
-                className="share-btn-email"
-              >
-                <span>✉️</span> Share via Email
-              </a>
-
-              <a
-                href={`https://wa.me/?text=${encodeURIComponent(createdCredentials.share_message || "")}`}
-                target="_blank"
-                rel="noreferrer"
-                className="share-btn-wa"
-              >
-                <span>💬</span> Share on WhatsApp
-              </a>
-            </div>
-
-            <div style={{ textAlign: "center", marginTop: "20px" }}>
-              <button
-                onClick={() => setCreatedCredentials(null)}
-                style={{ background: "none", border: "none", color: "var(--cf-muted)", cursor: "pointer", fontSize: "14px", textDecoration: "underline" }}
-              >
-                Done / Close Window
-              </button>
+              <button onClick={() => setCreatedCredentials(null)}>Close</button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </main>
     </div>
   );
 }
