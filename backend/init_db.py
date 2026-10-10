@@ -1,7 +1,9 @@
+
 """Database initialization and seeding helper for CampusFix Pro (12 tables)."""
 
 from datetime import datetime
 from sqlalchemy import text
+
 from database import engine, SessionLocal, Base
 from models import (
     User,
@@ -17,6 +19,7 @@ from models import (
     FixBotChatLog,
 )
 from security import hash_password
+
 
 CATEGORIES = [
     (1, "Electrical", "Electrical fixtures, wiring, lights, fans, and appliances", "zap"),
@@ -53,63 +56,158 @@ def run_migrations():
     try:
         with engine.begin() as conn:
             dialect = engine.dialect.name
+
             if dialect == "postgresql":
-                # categories
-                conn.execute(text("ALTER TABLE categories ADD COLUMN IF NOT EXISTS icon VARCHAR(50) DEFAULT 'wrench';"))
-                conn.execute(text("ALTER TABLE categories ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;"))
-                conn.execute(text("ALTER TABLE categories ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;"))
-                # users
-                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS college_name VARCHAR(255);"))
-                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_by_id INTEGER REFERENCES users(id) ON DELETE SET NULL;"))
-                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS specialization VARCHAR(255);"))
-                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS student_or_emp_id VARCHAR(100);"))
-                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50);"))
-                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS department VARCHAR(255);"))
-                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;"))
-                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;"))
-                conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;"))
-                # tickets
-                conn.execute(text("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS estimated_cost NUMERIC(10,2) DEFAULT 0.00;"))
-                conn.execute(text("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS resolution_details TEXT;"))
-                conn.execute(text("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMP;"))
-                # notifications
-                conn.execute(text("ALTER TABLE notifications ADD COLUMN IF NOT EXISTS type VARCHAR(50) DEFAULT 'ticket';"))
+                # Categories
+                conn.execute(text(
+                    "ALTER TABLE categories ADD COLUMN IF NOT EXISTS "
+                    "icon VARCHAR(50) DEFAULT 'wrench';"
+                ))
+                conn.execute(text(
+                    "ALTER TABLE categories ADD COLUMN IF NOT EXISTS "
+                    "is_active BOOLEAN DEFAULT TRUE;"
+                ))
+                conn.execute(text(
+                    "ALTER TABLE categories ADD COLUMN IF NOT EXISTS "
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;"
+                ))
+
+                # Users
+                conn.execute(text(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS college_name VARCHAR(255);"
+                ))
+                conn.execute(text(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+                    "created_by_id INTEGER REFERENCES users(id) ON DELETE SET NULL;"
+                ))
+                conn.execute(text(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS specialization VARCHAR(255);"
+                ))
+                conn.execute(text(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+                    "student_or_emp_id VARCHAR(100);"
+                ))
+                conn.execute(text(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50);"
+                ))
+                conn.execute(text(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS department VARCHAR(255);"
+                ))
+                conn.execute(text(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+                    "is_active BOOLEAN DEFAULT TRUE;"
+                ))
+
+                # Registration approval workflow
+                conn.execute(text(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+                    "approval_status VARCHAR(20) NOT NULL DEFAULT 'approved';"
+                ))
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_users_approval_status "
+                    "ON users (approval_status);"
+                ))
+
+                conn.execute(text(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;"
+                ))
+                conn.execute(text(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+                    "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;"
+                ))
+
+                # Tickets
+                conn.execute(text(
+                    "ALTER TABLE tickets ADD COLUMN IF NOT EXISTS "
+                    "estimated_cost NUMERIC(10,2) DEFAULT 0.00;"
+                ))
+                conn.execute(text(
+                    "ALTER TABLE tickets ADD COLUMN IF NOT EXISTS resolution_details TEXT;"
+                ))
+                conn.execute(text(
+                    "ALTER TABLE tickets ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMP;"
+                ))
+
+                # Notifications
+                conn.execute(text(
+                    "ALTER TABLE notifications ADD COLUMN IF NOT EXISTS "
+                    "type VARCHAR(50) DEFAULT 'ticket';"
+                ))
+
             elif dialect == "sqlite":
-                # categories
+                # Categories
                 try:
                     res = conn.execute(text("PRAGMA table_info(categories);")).fetchall()
                     cols = [r[1] for r in res]
+
                     if cols:
                         if "icon" not in cols:
-                            conn.execute(text("ALTER TABLE categories ADD COLUMN icon VARCHAR(50) DEFAULT 'wrench';"))
+                            conn.execute(text(
+                                "ALTER TABLE categories ADD COLUMN "
+                                "icon VARCHAR(50) DEFAULT 'wrench';"
+                            ))
                         if "is_active" not in cols:
-                            conn.execute(text("ALTER TABLE categories ADD COLUMN is_active BOOLEAN DEFAULT 1;"))
+                            conn.execute(text(
+                                "ALTER TABLE categories ADD COLUMN "
+                                "is_active BOOLEAN DEFAULT 1;"
+                            ))
                         if "created_at" not in cols:
-                            conn.execute(text("ALTER TABLE categories ADD COLUMN created_at TIMESTAMP;"))
-                except Exception:
-                    pass
+                            conn.execute(text(
+                                "ALTER TABLE categories ADD COLUMN created_at TIMESTAMP;"
+                            ))
+                except Exception as e:
+                    print(f"[CampusFix Pro] Category migration note: {e}")
 
-                # users
+                # Users
                 try:
                     res = conn.execute(text("PRAGMA table_info(users);")).fetchall()
                     cols = [r[1] for r in res]
+
                     if cols:
                         if "college_name" not in cols:
-                            conn.execute(text("ALTER TABLE users ADD COLUMN college_name VARCHAR(255);"))
+                            conn.execute(text(
+                                "ALTER TABLE users ADD COLUMN college_name VARCHAR(255);"
+                            ))
                         if "created_by_id" not in cols:
-                            conn.execute(text("ALTER TABLE users ADD COLUMN created_by_id INTEGER;"))
+                            conn.execute(text(
+                                "ALTER TABLE users ADD COLUMN created_by_id INTEGER;"
+                            ))
                         if "specialization" not in cols:
-                            conn.execute(text("ALTER TABLE users ADD COLUMN specialization VARCHAR(255);"))
+                            conn.execute(text(
+                                "ALTER TABLE users ADD COLUMN specialization VARCHAR(255);"
+                            ))
                         if "student_or_emp_id" not in cols:
-                            conn.execute(text("ALTER TABLE users ADD COLUMN student_or_emp_id VARCHAR(100);"))
+                            conn.execute(text(
+                                "ALTER TABLE users ADD COLUMN student_or_emp_id VARCHAR(100);"
+                            ))
                         if "phone" not in cols:
-                            conn.execute(text("ALTER TABLE users ADD COLUMN phone VARCHAR(50);"))
+                            conn.execute(text(
+                                "ALTER TABLE users ADD COLUMN phone VARCHAR(50);"
+                            ))
                         if "department" not in cols:
-                            conn.execute(text("ALTER TABLE users ADD COLUMN department VARCHAR(255);"))
+                            conn.execute(text(
+                                "ALTER TABLE users ADD COLUMN department VARCHAR(255);"
+                            ))
                         if "is_active" not in cols:
-                            conn.execute(text("ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT 1;"))
-                except Exception:
-                    pass
+                            conn.execute(text(
+                                "ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT 1;"
+                            ))
+
+                        # Registration approval workflow
+                        if "approval_status" not in cols:
+                            conn.execute(text(
+                                "ALTER TABLE users ADD COLUMN "
+                                "approval_status VARCHAR(20) NOT NULL DEFAULT 'approved';"
+                            ))
+
+                        conn.execute(text(
+                            "CREATE INDEX IF NOT EXISTS ix_users_approval_status "
+                            "ON users (approval_status);"
+                        ))
+                except Exception as e:
+                    print(f"[CampusFix Pro] User migration note: {e}")
+
     except Exception as e:
         print(f"[CampusFix Pro] Schema migration note: {e}")
 
@@ -128,88 +226,140 @@ def init_db() -> bool:
 
         db = SessionLocal()
 
-        # 1. Seed Categories
-        for cat_id, name, desc, icon in CATEGORIES:
-            cat = db.query(Category).filter(Category.id == cat_id).first()
-            if not cat:
-                cat = Category(id=cat_id, name=name, description=desc, icon=icon, is_active=True)
-                db.add(cat)
-            else:
-                cat.name = name
-                cat.description = desc
-                cat.icon = icon
-        db.commit()
-        print("[CampusFix Pro] Categories seeded.")
+        try:
+            # 1. Seed Categories
+            for cat_id, name, desc, icon in CATEGORIES:
+                cat = db.query(Category).filter(Category.id == cat_id).first()
 
-        # 2. Seed Locations
-        if db.query(Location).count() == 0:
-            for b_name, b_code, floor, room, landmark in DEFAULT_LOCATIONS:
-                loc = Location(
-                    building_name=b_name,
-                    block_code=b_code,
-                    floor=floor,
-                    room_number=room,
-                    landmark=landmark,
-                    is_active=True,
-                )
-                db.add(loc)
+                if not cat:
+                    cat = Category(
+                        id=cat_id,
+                        name=name,
+                        description=desc,
+                        icon=icon,
+                        is_active=True,
+                    )
+                    db.add(cat)
+                else:
+                    cat.name = name
+                    cat.description = desc
+                    cat.icon = icon
+
             db.commit()
-            print("[CampusFix Pro] Locations seeded.")
+            print("[CampusFix Pro] Categories seeded.")
 
-        # 3. Seed Inventory Items
-        for name, code, cat_id, qty, unit, min_t, cost in DEFAULT_INVENTORY:
-            inv = db.query(InventoryItem).filter(InventoryItem.item_code == code).first()
-            if not inv:
-                inv = InventoryItem(
-                    item_name=name,
-                    item_code=code,
-                    category_id=cat_id,
-                    quantity=qty,
-                    unit=unit,
-                    min_threshold=min_t,
-                    unit_cost=cost,
+            # 2. Seed Locations
+            if db.query(Location).count() == 0:
+                for b_name, b_code, floor, room, landmark in DEFAULT_LOCATIONS:
+                    loc = Location(
+                        building_name=b_name,
+                        block_code=b_code,
+                        floor=floor,
+                        room_number=room,
+                        landmark=landmark,
+                        is_active=True,
+                    )
+                    db.add(loc)
+
+                db.commit()
+                print("[CampusFix Pro] Locations seeded.")
+
+            # 3. Seed Inventory Items
+            for name, code, cat_id, qty, unit, min_t, cost in DEFAULT_INVENTORY:
+                inv = (
+                    db.query(InventoryItem)
+                    .filter(InventoryItem.item_code == code)
+                    .first()
                 )
-                db.add(inv)
-        db.commit()
-        print("[CampusFix Pro] Inventory items seeded.")
 
-        # 4. Remove any legacy demo seed accounts and seed tickets so system starts completely clean
-        legacy_emails = [
-            "admin@campusfix.com",
-            "faculty@campusfix.com",
-            "rahul@campusfix.com",
-            "student@campusfix.com",
-            "tech@campusfix.com",
-            "test@gmailcom",
-        ]
-        legacy_users = db.query(User).filter(User.email.in_(legacy_emails)).all()
-        legacy_user_ids = [u.id for u in legacy_users]
-        if legacy_user_ids:
-            # Delete notifications
-            db.query(Notification).filter(Notification.user_id.in_(legacy_user_ids)).delete(synchronize_session=False)
-            # Find tickets by or assigned to these users
-            tickets_to_clean = db.query(Ticket).filter(
-                (Ticket.user_id.in_(legacy_user_ids)) | (Ticket.technician_id.in_(legacy_user_ids))
+                if not inv:
+                    inv = InventoryItem(
+                        item_name=name,
+                        item_code=code,
+                        category_id=cat_id,
+                        quantity=qty,
+                        unit=unit,
+                        min_threshold=min_t,
+                        unit_cost=cost,
+                    )
+                    db.add(inv)
+
+            db.commit()
+            print("[CampusFix Pro] Inventory items seeded.")
+
+            # 4. Remove legacy demo seed accounts and their tickets
+            legacy_emails = [
+                "admin@campusfix.com",
+                "faculty@campusfix.com",
+                "rahul@campusfix.com",
+                "student@campusfix.com",
+                "tech@campusfix.com",
+                "test@gmailcom",
+            ]
+
+            legacy_users = db.query(User).filter(
+                User.email.in_(legacy_emails)
             ).all()
-            ticket_ids = [t.id for t in tickets_to_clean]
-            if ticket_ids:
-                db.query(Notification).filter(Notification.ticket_id.in_(ticket_ids)).delete(synchronize_session=False)
-                db.query(TicketComment).filter(TicketComment.ticket_id.in_(ticket_ids)).delete(synchronize_session=False)
-                db.query(TicketHistory).filter(TicketHistory.ticket_id.in_(ticket_ids)).delete(synchronize_session=False)
-                db.query(TicketFeedback).filter(TicketFeedback.ticket_id.in_(ticket_ids)).delete(synchronize_session=False)
-                db.query(TechnicianAssignment).filter(TechnicianAssignment.ticket_id.in_(ticket_ids)).delete(synchronize_session=False)
-                db.query(Ticket).filter(Ticket.id.in_(ticket_ids)).delete(synchronize_session=False)
-            
-            # Reset created_by_id if any remaining users reference legacy admin
-            db.query(User).filter(User.created_by_id.in_(legacy_user_ids)).update({User.created_by_id: None}, synchronize_session=False)
-            # Delete legacy users
-            db.query(User).filter(User.id.in_(legacy_user_ids)).delete(synchronize_session=False)
-            db.commit()
-            print(f"[CampusFix Pro] Purged {len(legacy_user_ids)} legacy seed users and all demo tickets.")
-        else:
-            print("[CampusFix Pro] Database ready without seed users. Colleges register via /register.")
 
-        db.close()
+            legacy_user_ids = [u.id for u in legacy_users]
+
+            if legacy_user_ids:
+                db.query(Notification).filter(
+                    Notification.user_id.in_(legacy_user_ids)
+                ).delete(synchronize_session=False)
+
+                tickets_to_clean = db.query(Ticket).filter(
+                    (Ticket.user_id.in_(legacy_user_ids))
+                    | (Ticket.technician_id.in_(legacy_user_ids))
+                ).all()
+
+                ticket_ids = [t.id for t in tickets_to_clean]
+
+                if ticket_ids:
+                    db.query(Notification).filter(
+                        Notification.ticket_id.in_(ticket_ids)
+                    ).delete(synchronize_session=False)
+                    db.query(TicketComment).filter(
+                        TicketComment.ticket_id.in_(ticket_ids)
+                    ).delete(synchronize_session=False)
+                    db.query(TicketHistory).filter(
+                        TicketHistory.ticket_id.in_(ticket_ids)
+                    ).delete(synchronize_session=False)
+                    db.query(TicketFeedback).filter(
+                        TicketFeedback.ticket_id.in_(ticket_ids)
+                    ).delete(synchronize_session=False)
+                    db.query(TechnicianAssignment).filter(
+                        TechnicianAssignment.ticket_id.in_(ticket_ids)
+                    ).delete(synchronize_session=False)
+                    db.query(Ticket).filter(
+                        Ticket.id.in_(ticket_ids)
+                    ).delete(synchronize_session=False)
+
+                db.query(User).filter(
+                    User.created_by_id.in_(legacy_user_ids)
+                ).update(
+                    {User.created_by_id: None},
+                    synchronize_session=False,
+                )
+
+                db.query(User).filter(
+                    User.id.in_(legacy_user_ids)
+                ).delete(synchronize_session=False)
+
+                db.commit()
+                print(
+                    f"[CampusFix Pro] Purged {len(legacy_user_ids)} legacy "
+                    "seed users and all demo tickets."
+                )
+            else:
+                print(
+                    "[CampusFix Pro] Database ready without seed users. "
+                    "Colleges register via /register."
+                )
+
+        finally:
+            db.close()
+
         print("[CampusFix Pro] Database initialization completed successfully!")
         return True
 
