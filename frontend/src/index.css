@@ -4975,3 +4975,98 @@ body {
   color: #c62828;
   margin-top: 10px;
 }
+
+/* =====================================
+   CAMPUSFIX PRO THEME SUPPORT
+   ===================================== */
+
+:root {
+  color-scheme: light;
+  --theme-bg: #f5f7fb;
+  --theme-surface: #ffffff;
+  --theme-text: #172033;
+  --theme-muted: #667085;
+  --theme-border: #e1e7ef;
+  --theme-input-bg: #ffffff;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --theme-bg: #101827;
+  --theme-surface: #1b2638;
+  --theme-text: #edf2f7;
+  --theme-muted: #b0bdcf;
+  --theme-border: #344256;
+  --theme-input-bg: #111c2d;
+}
+
+html,
+body {
+  background-color: var(--theme-bg);
+  color: var(--theme-text);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+:root[data-theme="dark"] .app,
+:root[data-theme="dark"] .dashboard-main,
+:root[data-theme="dark"] .hero-section,
+:root[data-theme="dark"] .features-section,
+:root[data-theme="dark"] .how-section,
+:root[data-theme="dark"] .about-section {
+  background-color: var(--theme-bg);
+  color: var(--theme-text);
+}
+
+:root[data-theme="dark"] .feature-card,
+:root[data-theme="dark"] .step-card,
+:root[data-theme="dark"] .about-box,
+:root[data-theme="dark"] .stat-card,
+:root[data-theme="dark"] .recent-tickets,
+:root[data-theme="dark"] .admin-ticket-section {
+  background-color: var(--theme-surface);
+  color: var(--theme-text);
+  border-color: var(--theme-border);
+}
+
+:root[data-theme="dark"] h1,
+:root[data-theme="dark"] h2,
+:root[data-theme="dark"] h3,
+:root[data-theme="dark"] p,
+:root[data-theme="dark"] label {
+  color: inherit;
+}
+
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] select {
+  background-color: var(--theme-input-bg);
+  color: var(--theme-text);
+  border-color: var(--theme-border);
+}
+
+:root[data-theme="dark"] input::placeholder,
+:root[data-theme="dark"] textarea::placeholder {
+  color: var(--theme-muted);
+}
+
+.theme-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.theme-selector select {
+  padding: 9px 10px;
+  border: 1px solid var(--theme-border);
+  border-radius: 8px;
+  background: var(--theme-surface);
+  color: var(--theme-text);
+  cursor: pointer;
+  max-width: 160px;
+}
+
+@media (max-width: 700px) {
+  .theme-selector select {
+    max-width: 135px;
+  }
+}
