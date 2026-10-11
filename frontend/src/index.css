@@ -5070,3 +5070,20 @@ body {
     max-width: 135px;
   }
 }
+.theme-icon-button {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--theme-border);
+  border-radius: 50%;
+  background: var(--theme-surface);
+  color: var(--theme-text);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.theme-icon-button:hover {
+  transform: scale(1.05);
+}
