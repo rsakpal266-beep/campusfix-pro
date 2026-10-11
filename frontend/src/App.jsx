@@ -22,9 +22,11 @@ import TechnicianTicketDetails from "./pages/TechnicianTicketDetails";
 import TechnicianNotifications from "./pages/TechnicianNotifications";
 import TechnicianProfile from "./pages/TechnicianProfile";
 import AdminTechnicians from "./pages/AdminTechnicians";
+import { useTheme } from "./context/ThemeContext";
 
 function Home() {
   const navigate = useNavigate();
+  const { theme, changeTheme } = useTheme();
 
   return (
     <div className="app">
@@ -53,6 +55,21 @@ function Home() {
   </div>
 
   <div className="nav-buttons">
+    
+<label className="theme-selector">
+  <span aria-hidden="true">
+    {theme === "dark" ? "🌙" : theme === "light" ? "☀️" : "💻"}
+  </span>
+  <select
+    aria-label="Choose website theme"
+    value={theme}
+    onChange={(event) => changeTheme(event.target.value)}
+  >
+    <option value="light">Light</option>
+    <option value="dark">Dark</option>
+    <option value="system">System Default</option>
+  </select>
+</label>
     <button
       className="portal-btn"
       onClick={() => navigate("/login")}
