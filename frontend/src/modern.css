@@ -7513,3 +7513,47 @@ footer {
   color: #b8adff;
   border-color: #7468c9;
 }
+
+/* CampusFix Pro — visible theme toggle */
+.theme-icon-button {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid #d9d5ff;
+  border-radius: 50%;
+  background: #f5f3ff;
+  color: #5145cd;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.10);
+  transition: all 0.2s ease;
+}
+
+.theme-icon-button svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  stroke: currentColor;
+}
+
+.theme-icon-button:hover {
+  background: #e9e5ff;
+  border-color: #a99cff;
+  transform: translateY(-1px);
+}
+
+:root[data-theme="dark"] .theme-icon-button {
+  background: #17172d;
+  color: #f1edff;
+  border-color: #51458f;
+}
+
+:root[data-theme="dark"] .theme-icon-button:hover {
+  background: #282344;
+  color: #c8beff;
+  border-color: #8272df;
+}
