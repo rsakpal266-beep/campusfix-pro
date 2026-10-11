@@ -6942,3 +6942,22 @@ button:hover {
     margin-left: 52px;
   }
 }
+/* CampusFix Pro theme toggle button */
+.theme-icon-button {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(140, 124, 255, 0.4);
+  border-radius: 50%;
+  background: #171735;
+  color: #ffffff;
+  font-size: 20px;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.theme-icon-button:hover {
+  transform: scale(1.06);
+}
