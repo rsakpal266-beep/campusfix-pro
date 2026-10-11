@@ -6961,3 +6961,46 @@ button:hover {
 .theme-icon-button:hover {
   transform: scale(1.06);
 }
+/* CampusFix Pro - Light and Dark Theme */
+:root[data-theme="light"] .hero-section {
+  background: linear-gradient(135deg, #f5f7ff 0%, #e9eaff 55%, #f1e9ff 100%) !important;
+  color: #172033 !important;
+}
+
+:root[data-theme="light"] .hero-section h1,
+:root[data-theme="light"] .hero-section p {
+  color: #172033 !important;
+}
+
+:root[data-theme="light"] .hero-section .hero-content {
+  color: #172033 !important;
+}
+
+:root[data-theme="light"] body,
+:root[data-theme="light"] .app {
+  background: #f5f7fb !important;
+  color: #172033 !important;
+}
+
+:root[data-theme="light"] .navbar,
+:root[data-theme="light"] nav {
+  background: #ffffff !important;
+  color: #172033 !important;
+  border-bottom: 1px solid #e1e7ef !important;
+}
+
+:root[data-theme="light"] .navbar a,
+:root[data-theme="light"] nav a {
+  color: #172033 !important;
+}
+
+:root[data-theme="light"] .theme-icon-button {
+  background: #ffffff;
+  color: #172033;
+  border-color: #d5dbea;
+}
+
+:root[data-theme="dark"] .theme-icon-button {
+  background: #171735;
+  color: #ffffff;
+}
