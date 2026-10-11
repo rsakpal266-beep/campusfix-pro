@@ -7102,3 +7102,45 @@ button:hover {
   background: #171735 !important;
   color: #ffffff !important;
 }
+/* Force all homepage sections to follow light theme */
+:root[data-theme="light"] section.features-section,
+:root[data-theme="light"] section.how-section,
+:root[data-theme="light"] section.about-section {
+  background: #f5f7fb !important;
+  background-image: none !important;
+  color: #172033 !important;
+}
+
+:root[data-theme="light"] section.features-section *,
+:root[data-theme="light"] section.how-section *,
+:root[data-theme="light"] section.about-section * {
+  color: inherit;
+}
+
+:root[data-theme="light"] section.features-section h1,
+:root[data-theme="light"] section.features-section h2,
+:root[data-theme="light"] section.features-section h3,
+:root[data-theme="light"] section.how-section h1,
+:root[data-theme="light"] section.how-section h2,
+:root[data-theme="light"] section.how-section h3,
+:root[data-theme="light"] section.about-section h1,
+:root[data-theme="light"] section.about-section h2,
+:root[data-theme="light"] section.about-section h3 {
+  color: #172033 !important;
+  -webkit-text-fill-color: #172033 !important;
+}
+
+:root[data-theme="light"] section.features-section p,
+:root[data-theme="light"] section.how-section p,
+:root[data-theme="light"] section.about-section p {
+  color: #475467 !important;
+  -webkit-text-fill-color: #475467 !important;
+}
+
+:root[data-theme="light"] section.features-section [class*="card"],
+:root[data-theme="light"] section.how-section [class*="card"],
+:root[data-theme="light"] section.about-section [class*="box"] {
+  background: #ffffff !important;
+  color: #172033 !important;
+  border-color: #e1e7ef !important;
+}
