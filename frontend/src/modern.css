@@ -7004,3 +7004,37 @@ button:hover {
   background: #171735;
   color: #ffffff;
 }
+/* Fix text and button contrast in light mode */
+:root[data-theme="light"] .hero-section h1,
+:root[data-theme="light"] .hero-section .hero-content h1 {
+  color: #172033 !important;
+  background: none !important;
+  -webkit-text-fill-color: #172033 !important;
+}
+
+:root[data-theme="light"] .hero-section h1 span,
+:root[data-theme="light"] .hero-section h1 strong {
+  -webkit-text-fill-color: #635bdb !important;
+}
+
+:root[data-theme="light"] .hero-section p {
+  color: #344054 !important;
+  -webkit-text-fill-color: #344054 !important;
+}
+
+:root[data-theme="light"] .hero-section a,
+:root[data-theme="light"] .hero-section button {
+  color: #ffffff !important;
+}
+
+:root[data-theme="light"] .hero-section .secondary-btn,
+:root[data-theme="light"] .hero-section .outline-btn {
+  color: #312e81 !important;
+  background: #ffffff !important;
+  border-color: #c7c9f8 !important;
+}
+
+:root[data-theme="light"] .navbar a,
+:root[data-theme="light"] nav a {
+  color: #172033 !important;
+}
