@@ -7414,33 +7414,55 @@ footer {
   border-color: #d7def5;
 }
 
-/* Round light/dark theme toggle */
+
+/* Theme toggle button — CampusFix Pro */
 .theme-icon-button {
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: none;
+  flex-shrink: 0;
+
+  border: 1px solid var(--theme-border, #e1e7ef);
   border-radius: 50%;
-  background: #f0f1f4;
-  color: #263247;
-  font-size: 22px;
-  line-height: 1;
+  background: var(--theme-surface, #ffffff);
+  color: var(--theme-text, #172033);
+
+  font-size: 19px;
   cursor: pointer;
-  transition: background 0.2s ease, transform 0.2s ease;
+  transition:
+    background 0.25s ease,
+    color 0.25s ease,
+    border-color 0.25s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .theme-icon-button:hover {
-  background: #e1e4eb;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.18);
+  border-color: #8b7cff;
+}
+
+.theme-icon-button:focus-visible {
+  outline: 3px solid #8b7cff;
+  outline-offset: 3px;
 }
 
 :root[data-theme="dark"] .theme-icon-button {
-  background: #24263b;
-  color: #f5f5ff;
+  background: #1b2638;
+  color: #edf2f7;
+  border-color: #344256;
 }
 
 :root[data-theme="dark"] .theme-icon-button:hover {
-  background: #353750;
+  background: #26354b;
+  border-color: #8b7cff;
+}
+
+.nav-buttons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
