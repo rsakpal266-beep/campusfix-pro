@@ -7038,3 +7038,67 @@ button:hover {
 :root[data-theme="light"] nav a {
   color: #172033 !important;
 }
+/* CampusFix Pro - Global Light Theme Fix */
+:root[data-theme="light"] body,
+:root[data-theme="light"] #root,
+:root[data-theme="light"] .app {
+  background: #f5f7fb !important;
+  color: #172033 !important;
+}
+
+:root[data-theme="light"] .features-section,
+:root[data-theme="light"] .how-section,
+:root[data-theme="light"] .about-section,
+:root[data-theme="light"] footer,
+:root[data-theme="light"] .dashboard-main {
+  background: #f5f7fb !important;
+  color: #172033 !important;
+}
+
+:root[data-theme="light"] .feature-card,
+:root[data-theme="light"] .step-card,
+:root[data-theme="light"] .about-box,
+:root[data-theme="light"] .stat-card,
+:root[data-theme="light"] .recent-tickets,
+:root[data-theme="light"] .admin-ticket-section {
+  background: #ffffff !important;
+  color: #172033 !important;
+  border-color: #e1e7ef !important;
+  box-shadow: 0 4px 16px rgba(30, 41, 59, 0.06);
+}
+
+:root[data-theme="light"] .features-section h1,
+:root[data-theme="light"] .features-section h2,
+:root[data-theme="light"] .features-section h3,
+:root[data-theme="light"] .how-section h1,
+:root[data-theme="light"] .how-section h2,
+:root[data-theme="light"] .how-section h3,
+:root[data-theme="light"] .about-section h1,
+:root[data-theme="light"] .about-section h2,
+:root[data-theme="light"] .about-section h3,
+:root[data-theme="light"] footer h1,
+:root[data-theme="light"] footer h2,
+:root[data-theme="light"] footer h3 {
+  color: #172033 !important;
+  -webkit-text-fill-color: #172033 !important;
+}
+
+:root[data-theme="light"] .features-section p,
+:root[data-theme="light"] .how-section p,
+:root[data-theme="light"] .about-section p,
+:root[data-theme="light"] footer p {
+  color: #475467 !important;
+  -webkit-text-fill-color: #475467 !important;
+}
+
+:root[data-theme="light"] .theme-icon-button {
+  background: #ffffff !important;
+  color: #172033 !important;
+  border: 1px solid #d8deea !important;
+}
+
+/* Keep dark theme card styling */
+:root[data-theme="dark"] .theme-icon-button {
+  background: #171735 !important;
+  color: #ffffff !important;
+}
