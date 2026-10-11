@@ -7551,7 +7551,6 @@ footer {
   color: #f1edff;
   border-color: #51458f;
 }
-
 /* ==========================================
    CAMPUSFIX PRO — LIGHT THEME POLISH
    Dark theme remains unchanged
@@ -7567,7 +7566,6 @@ footer {
   color: #1c2440;
 }
 
-/* Smooth, coordinated section backgrounds */
 :root:not([data-theme="dark"]) .hero-section {
   background: linear-gradient(
     120deg,
@@ -7578,46 +7576,23 @@ footer {
 }
 
 :root:not([data-theme="dark"]) .features-section {
-  background: linear-gradient(
-    135deg,
-    #f4f2ff 0%,
-    #eff2ff 55%,
-    #edf6ff 100%
-  );
-  color: #1c2440;
+  background: linear-gradient(135deg, #f5f3ff, #eff1ff 55%, #edf6ff);
 }
 
 :root:not([data-theme="dark"]) .how-section {
-  background: linear-gradient(
-    120deg,
-    #eff3ff 0%,
-    #f5f2ff 50%,
-    #edf6ff 100%
-  );
-  color: #1c2440;
+  background: linear-gradient(135deg, #f0f3ff, #f7f4ff 50%, #edf5ff);
 }
 
 :root:not([data-theme="dark"]) .about-section {
-  background: linear-gradient(
-    135deg,
-    #f0edff 0%,
-    #edf2ff 55%,
-    #e9f5ff 100%
-  );
-  color: #1c2440;
+  background: linear-gradient(120deg, #eeebff, #f4f3ff 50%, #e9f4ff);
 }
 
-/* Soft lavender-blue cards instead of plain white */
 :root:not([data-theme="dark"]) .feature-card,
 :root:not([data-theme="dark"]) .step-card,
 :root:not([data-theme="dark"]) .about-box {
-  background: linear-gradient(
-    145deg,
-    rgba(255, 255, 255, 0.94),
-    rgba(240, 241, 255, 0.92)
-  );
-  border: 1px solid #dfe2fa;
-  box-shadow: 0 10px 28px rgba(79, 70, 160, 0.09);
+  background: linear-gradient(145deg, #ffffff, #f4f2ff);
+  border: 1px solid #e1defb;
+  box-shadow: 0 10px 28px rgba(88, 78, 180, 0.09);
   color: #202744;
   transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
@@ -7626,11 +7601,10 @@ footer {
 :root:not([data-theme="dark"]) .step-card:hover,
 :root:not([data-theme="dark"]) .about-box:hover {
   transform: translateY(-4px);
-  box-shadow: 0 16px 34px rgba(89, 76, 190, 0.15);
+  box-shadow: 0 14px 32px rgba(88, 78, 180, 0.15);
   border-color: #c9c9ff;
 }
 
-/* Clear headings and comfortable body text */
 :root:not([data-theme="dark"]) .section-heading h2,
 :root:not([data-theme="dark"]) .about-text h2,
 :root:not([data-theme="dark"]) .feature-card h3,
@@ -7647,94 +7621,20 @@ footer {
   color: #56617d;
 }
 
-/* Keep the footer connected to the page palette */
-:root:not([data-theme="dark"]) .footer {
-  background: linear-gradient(
-    120deg,
-    #f0edff 0%,
-    #edf3ff 100%
-  );
-  border-top: 1px solid #dfe3fa;
-  color: #202747;
-}
-
-/* Preserve the blue-purple heading identity */
-:root:not([data-theme="dark"]) .hero-section h1 span {
-  background: linear-gradient(90deg, #6554e8, #347df0);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-:root[data-theme="dark"] .theme-icon-button:hover {
-  background: #282344;
-  color: #c8beff;
-  border-color: #8272df;
-}
-
-/* ==========================================
-   LIGHT THEME POLISH — CAMPUSFIX PRO
-   ========================================== */
-
-:root:not([data-theme="dark"]) .features-section {
-  background: linear-gradient(
-    135deg,
-    #f5f3ff 0%,
-    #eff1ff 55%,
-    #edf6ff 100%
-  );
-}
-
-:root:not([data-theme="dark"]) .how-section {
-  background: linear-gradient(
-    135deg,
-    #f0f3ff 0%,
-    #f7f4ff 50%,
-    #edf5ff 100%
-  );
-}
-
-:root:not([data-theme="dark"]) .about-section {
-  background: linear-gradient(
-    120deg,
-    #eeebff 0%,
-    #f4f3ff 50%,
-    #e9f4ff 100%
-  );
-}
-
-/* Softer lavender cards instead of plain white */
-:root:not([data-theme="dark"]) .feature-card,
-:root:not([data-theme="dark"]) .step-card,
-:root:not([data-theme="dark"]) .about-box {
-  background: linear-gradient(
-    145deg,
-    #ffffff 0%,
-    #f7f6ff 100%
-  );
-  border: 1px solid #e1defb;
-  box-shadow: 0 10px 28px rgba(88, 78, 180, 0.09);
-}
-
-/* Gentle hover effect */
-:root:not([data-theme="dark"]) .feature-card:hover,
-:root:not([data-theme="dark"]) .step-card:hover,
-:root:not([data-theme="dark"]) .about-box:hover {
-  box-shadow: 0 14px 32px rgba(88, 78, 180, 0.15);
-}
-
-/* Purple-blue step numbers */
 :root:not([data-theme="dark"]) .step-number {
   background: linear-gradient(135deg, #6657e8, #3984f4);
   color: #ffffff;
 }
 
-/* Keep the footer visually connected */
 :root:not([data-theme="dark"]) .footer {
-  background: linear-gradient(
-    120deg,
-    #f0edff 0%,
-    #edf4ff 100%
-  );
+  background: linear-gradient(120deg, #f0edff, #edf4ff);
   border-top: 1px solid #e0e2fa;
+  color: #202747;
+}
+
+:root:not([data-theme="dark"]) .hero-section h1 span {
+  background: linear-gradient(90deg, #6554e8, #347df0);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
