@@ -7638,3 +7638,72 @@ footer {
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+
+/* ==========================================
+   CAMPUSFIX PRO — FINAL LIGHT THEME REFINEMENT
+   Dark theme and existing features preserved
+   ========================================== */
+
+:root:not([data-theme="dark"]) .features-section,
+:root:not([data-theme="dark"]) .how-section,
+:root:not([data-theme="dark"]) .about-section {
+  background: linear-gradient(
+    135deg,
+    #f2efff 0%,
+    #edf1ff 52%,
+    #e8f4ff 100%
+  ) !important;
+  color: #202744;
+}
+
+/* Soft lavender-blue cards */
+:root:not([data-theme="dark"]) .feature-card,
+:root:not([data-theme="dark"]) .step-card,
+:root:not([data-theme="dark"]) .about-box,
+:root:not([data-theme="dark"]) .about-section > div > div:last-child {
+  background: linear-gradient(
+    145deg,
+    #ffffff 0%,
+    #f2f1ff 100%
+  ) !important;
+  color: #202744;
+  border: 1px solid #dcdffc;
+  box-shadow: 0 12px 30px rgba(83, 72, 170, 0.10);
+}
+
+/* Improve card headings and descriptions */
+:root:not([data-theme="dark"]) .feature-card h3,
+:root:not([data-theme="dark"]) .step-card h3,
+:root:not([data-theme="dark"]) .about-box h3 {
+  color: #28264f;
+}
+
+:root:not([data-theme="dark"]) .feature-card p,
+:root:not([data-theme="dark"]) .step-card p,
+:root:not([data-theme="dark"]) .about-box p {
+  color: #596580;
+}
+
+/* Purple-blue step number badges */
+:root:not([data-theme="dark"]) .step-number {
+  background: linear-gradient(135deg, #6955ed, #367ff2);
+  color: #ffffff;
+}
+
+/* Softer hover effect */
+:root:not([data-theme="dark"]) .feature-card:hover,
+:root:not([data-theme="dark"]) .step-card:hover,
+:root:not([data-theme="dark"]) .about-box:hover {
+  border-color: #c4c5ff;
+  box-shadow: 0 16px 34px rgba(83, 72, 170, 0.16);
+}
+
+/* Improve readability of the light theme buttons */
+:root:not([data-theme="dark"]) .nav-buttons .theme-icon-button,
+:root:not([data-theme="dark"]) .nav-buttons button {
+  color: #ffffff;
+}
+
+:root:not([data-theme="dark"]) .nav-buttons .theme-icon-button {
+  color: #28264f;
+}
