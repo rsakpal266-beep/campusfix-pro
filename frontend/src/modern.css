@@ -7144,3 +7144,131 @@ button:hover {
   color: #172033 !important;
   border-color: #e1e7ef !important;
 }
+
+/* =========================================
+   CAMPUSFIX PRO — PREMIUM LIGHT & DARK THEMES
+   ========================================= */
+
+:root {
+  --cf-bg: #f4f6ff;
+  --cf-surface: #ffffff;
+  --cf-surface-soft: #eef0ff;
+  --cf-text: #18213b;
+  --cf-muted: #56627d;
+  --cf-border: #dce2f5;
+  --cf-primary: #6555e8;
+  --cf-secondary: #3478f6;
+  --cf-gradient: linear-gradient(135deg, #6555e8, #3478f6);
+  --cf-hero-gradient:
+    radial-gradient(ellipse at 80% 15%, #e1dcff 0%, transparent 42%),
+    radial-gradient(ellipse at 10% 85%, #dceaff 0%, transparent 45%),
+    linear-gradient(135deg, #f8f9ff, #eeefff);
+  --cf-shadow: 0 12px 35px rgba(57, 66, 125, 0.12);
+}
+
+/* Dark theme: retain the existing navy and purple identity */
+:root[data-theme="dark"] {
+  --cf-bg: #08091b;
+  --cf-surface: #101b35;
+  --cf-surface-soft: #1c2940;
+  --cf-text: #f5f5ff;
+  --cf-muted: #b8c8e8;
+  --cf-border: #263d68;
+  --cf-primary: #8067ff;
+  --cf-secondary: #3985ff;
+  --cf-gradient: linear-gradient(135deg, #8067ff, #3985ff);
+  --cf-hero-gradient:
+    radial-gradient(ellipse at 80% 15%, #251c55 0%, transparent 45%),
+    radial-gradient(ellipse at 10% 90%, #101f48 0%, transparent 45%),
+    linear-gradient(135deg, #08091b, #17143b);
+  --cf-shadow: 0 12px 35px rgba(0, 0, 0, 0.24);
+}
+
+/* Shared page colours */
+html,
+body {
+  background: var(--cf-bg);
+  color: var(--cf-text);
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+/* Hero background */
+.hero-section {
+  background: var(--cf-hero-gradient);
+  color: var(--cf-text);
+}
+
+/* Main content sections */
+.features-section,
+.how-section,
+.about-section,
+.dashboard-main {
+  background-color: var(--cf-bg);
+  color: var(--cf-text);
+}
+
+/* Cards */
+.feature-card,
+.step-card,
+.about-box,
+.stat-card,
+.recent-tickets,
+.admin-ticket-section {
+  background: var(--cf-surface);
+  color: var(--cf-text);
+  border: 1px solid var(--cf-border);
+  box-shadow: var(--cf-shadow);
+  transition: background 0.25s ease, color 0.25s ease,
+    border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+/* Gradient card accents */
+.feature-card:hover,
+.step-card:hover {
+  border-color: var(--cf-primary);
+  box-shadow: 0 16px 38px rgba(101, 85, 232, 0.16);
+}
+
+/* Headings and text */
+h1,
+h2,
+h3,
+h4 {
+  color: var(--cf-text);
+}
+
+p,
+label {
+  color: var(--cf-muted);
+}
+
+/* Inputs and dropdowns */
+input,
+textarea,
+select {
+  background-color: var(--cf-surface);
+  color: var(--cf-text);
+  border-color: var(--cf-border);
+}
+
+/* Buttons */
+button,
+.btn,
+.primary-btn {
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+/* Theme selector */
+.theme-selector {
+  background: var(--cf-surface);
+  color: var(--cf-text);
+  border: 1px solid var(--cf-border);
+  border-radius: 12px;
+}
+
+/* Footer */
+footer {
+  background: var(--cf-surface);
+  color: var(--cf-text);
+  border-color: var(--cf-border);
+}
