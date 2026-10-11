@@ -7466,3 +7466,9 @@ footer {
   align-items: center;
   gap: 12px;
 }
+.theme-toggle-icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+}
