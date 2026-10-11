@@ -7272,3 +7272,144 @@ footer {
   color: var(--cf-text);
   border-color: var(--cf-border);
 }
+
+/* ==========================================
+   CAMPUSFIX PRO - PREMIUM LIGHT THEME
+   Purple + Blue Gradient Design
+   ========================================== */
+
+:root[data-theme="light"] {
+  --theme-bg: #f3f5ff;
+  --theme-surface: #ffffff;
+  --theme-text: #17213b;
+  --theme-muted: #586783;
+  --theme-border: #dce3ff;
+  --theme-input-bg: #ffffff;
+}
+
+/* Main page and sections */
+:root[data-theme="light"] body,
+:root[data-theme="light"] .app,
+:root[data-theme="light"] .dashboard-main {
+  background: #f3f5ff !important;
+  color: #17213b !important;
+}
+
+/* Hero section - soft purple and blue gradient */
+:root[data-theme="light"] .hero-section {
+  background:
+    radial-gradient(
+      ellipse at 85% 10%,
+      rgba(139, 92, 246, 0.16),
+      transparent 45%
+    ),
+    linear-gradient(
+      135deg,
+      #f7f7ff 0%,
+      #eeefff 55%,
+      #e8f1ff 100%
+    ) !important;
+  color: #17213b !important;
+}
+
+/* Features, How It Works and About */
+:root[data-theme="light"] .features-section,
+:root[data-theme="light"] .how-section,
+:root[data-theme="light"] .about-section {
+  background:
+    linear-gradient(
+      135deg,
+      #f7f8ff 0%,
+      #eef1ff 55%,
+      #f1f7ff 100%
+    ) !important;
+  color: #17213b !important;
+}
+
+/* Feature and process cards */
+:root[data-theme="light"] .feature-card,
+:root[data-theme="light"] .step-card,
+:root[data-theme="light"] .about-box,
+:root[data-theme="light"] .stat-card,
+:root[data-theme="light"] .recent-tickets,
+:root[data-theme="light"] .admin-ticket-section {
+  background: linear-gradient(
+    145deg,
+    #ffffff 0%,
+    #f8f8ff 100%
+  ) !important;
+  color: #17213b !important;
+  border: 1px solid #dfe4ff !important;
+  box-shadow: 0 12px 32px rgba(63, 75, 140, 0.09) !important;
+}
+
+/* Headings and descriptions */
+:root[data-theme="light"] .features-section h1,
+:root[data-theme="light"] .features-section h2,
+:root[data-theme="light"] .features-section h3,
+:root[data-theme="light"] .how-section h1,
+:root[data-theme="light"] .how-section h2,
+:root[data-theme="light"] .how-section h3,
+:root[data-theme="light"] .about-section h1,
+:root[data-theme="light"] .about-section h2,
+:root[data-theme="light"] .about-section h3 {
+  color: #20294a !important;
+}
+
+:root[data-theme="light"] .features-section p,
+:root[data-theme="light"] .how-section p,
+:root[data-theme="light"] .about-section p {
+  color: #52617e !important;
+}
+
+/* Navigation */
+:root[data-theme="light"] .navbar {
+  background: rgba(255, 255, 255, 0.94) !important;
+  color: #20294a !important;
+  border-bottom: 1px solid #e0e5ff !important;
+}
+
+/* Footer */
+:root[data-theme="light"] footer {
+  background: linear-gradient(
+    135deg,
+    #eef0ff,
+    #f5f8ff
+  ) !important;
+  color: #20294a !important;
+  border-top: 1px solid #dce3ff !important;
+}
+
+/* Theme switch button */
+.theme-icon-button {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(140, 124, 255, 0.4);
+  border-radius: 13px;
+  background: linear-gradient(
+    135deg,
+    #ffffff,
+    #efedff
+  );
+  color: #5b4be7;
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.theme-icon-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(91, 75, 231, 0.18);
+}
+
+/* Inputs */
+:root[data-theme="light"] input,
+:root[data-theme="light"] textarea,
+:root[data-theme="light"] select {
+  background-color: #ffffff;
+  color: #20294a;
+  border-color: #d7def5;
+}
