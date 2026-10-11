@@ -58,11 +58,9 @@ function Home() {
     <button
       type="button"
       className="theme-icon-button"
-      aria-label="Toggle light and dark theme"
-      title="Toggle theme"
-      onClick={() =>
-        changeTheme(theme === "dark" ? "light" : "dark")
-      }
+      aria-label={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
+      title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
+      onClick={() => changeTheme(theme === "dark" ? "light" : "dark")}
     >
       {theme === "dark" ? "☀️" : "🌙"}
     </button>
