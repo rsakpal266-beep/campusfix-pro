@@ -55,21 +55,17 @@ function Home() {
   </div>
 
   <div className="nav-buttons">
-    
-<label className="theme-selector">
-  <span aria-hidden="true">
-    {theme === "dark" ? "🌙" : theme === "light" ? "☀️" : "💻"}
-  </span>
-  <select
-    aria-label="Choose website theme"
-    value={theme}
-    onChange={(event) => changeTheme(event.target.value)}
-  >
-    <option value="light">Light</option>
-    <option value="dark">Dark</option>
-    <option value="system">System Default</option>
-  </select>
-</label>
+    <button
+      type="button"
+      className="theme-icon-button"
+      aria-label="Toggle light and dark theme"
+      title="Toggle theme"
+      onClick={() =>
+        changeTheme(theme === "dark" ? "light" : "dark")
+      }
+    >
+      {theme === "dark" ? "☀️" : "🌙"}
+    </button>
     <button
       className="portal-btn"
       onClick={() => navigate("/login")}
